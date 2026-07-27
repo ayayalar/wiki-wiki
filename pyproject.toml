@@ -1,0 +1,26 @@
+[project]
+name = "wiki-mcp-server"
+version = "0.1.0"
+description = "MCP server that maintains an LLM-managed wiki per code repo (git submodule)."
+requires-python = ">=3.11"
+dependencies = [
+  "mcp>=1.27,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-xdist>=3.5",
+  "ruff>=0.5",
+]
+
+[project.scripts]
+wiki-mcp-server = "server:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

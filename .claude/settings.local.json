@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile tools/push.py tools/ingest.py tools/reset.py utils/git.py)",
+      "Bash(ls tests/)",
+      "Bash(ls .venv/Scripts/python*)",
+      "Bash(python -m py_compile server.py utils/git.py utils/wiki.py utils/wiki_index.py tools/push.py tools/ingest.py tools/reset.py tools/delete.py)",
+      "Bash(python -m py_compile server.py config.py utils/git.py utils/wiki.py utils/wiki_index.py tools/push.py tools/ingest.py tools/reset.py tools/delete.py tools/resolve.py)",
+      "Bash(python -m py_compile server.py config.py utils/git.py utils/wiki.py utils/wiki_index.py tools/push.py tools/ingest.py tools/reset.py tools/delete.py tools/resolve.py tools/fetch.py)",
+      "Bash(python -m pip install -q pytest pytest-xdist)",
+      "Bash(python -m pytest --version)",
+      "Bash(python -m ensurepip --version)",
+      "Bash(where python *)",
+      "Bash(where py *)",
+      "Bash(python -m ensurepip)",
+      "Bash(python -m pytest -x -q -p no:cacheprovider)",
+      "Bash(python -m pytest -q -p no:cacheprovider)",
+      "Bash(python -m pytest -q -p no:cacheprovider \"tests/test_integration.py::TestIngest::test_no_changes\" \"tests/test_integration.py::TestResolve::test_healthy_wiki_no_issues\" \"tests/test_resolve.py::TestNonInteractiveEditor::test_revert_continue_passes_git_editor_env_extra\" --tb=line)",
+      "Bash(python -m pytest -q -p no:cacheprovider tests/test_pull.py tests/test_fixes.py tests/test_session_fixes.py --tb=line)",
+      "Bash(python -m pytest -q -p no:cacheprovider --tb=no)",
+      "Bash(python -m pytest -q -p no:cacheprovider \"tests/test_integration.py::TestIngest::test_returns_diff\" \"tests/test_integration.py::TestIngest::test_targeted_ingest_on_empty_wiki\" \"tests/test_integration.py::TestResolve::test_healthy_wiki_no_issues\" --tb=short)",
+      "Bash(python -c \"import os; print\\('GIT_EDITOR =', repr\\(os.environ.get\\('GIT_EDITOR'\\)\\)\\); print\\('GIT_SEQUENCE_EDITOR =', repr\\(os.environ.get\\('GIT_SEQUENCE_EDITOR'\\)\\)\\)\")",
+      "Bash(cd \"C:\\\\Users\\\\ayaya\\\\OneDrive\\\\Desktop\\\\wiki-src\")",
+      "Bash(export GIT_EDITOR=true)",
+      "Bash(python -m pytest -q -p no:cacheprovider --tb=short)"
+    ]
+  }
+}
