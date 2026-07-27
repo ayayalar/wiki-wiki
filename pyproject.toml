@@ -1,11 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "wiki-mcp-server"
 version = "0.1.0"
 description = "MCP server that maintains an LLM-managed wiki per code repo (git submodule)."
+readme = "README.md"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
 requires-python = ">=3.11"
 dependencies = [
   "mcp>=1.27,<2",
 ]
+urls = { Repository = "https://github.com/ayayalar/wiki-wiki" }
 
 [project.optional-dependencies]
 dev = [
@@ -16,6 +29,14 @@ dev = [
 
 [project.scripts]
 wiki-mcp-server = "server:main"
+
+[tool.setuptools]
+py-modules = ["server", "config"]
+packages = ["tools", "utils", "templates"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+templates = ["*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
