@@ -142,6 +142,12 @@ class TestRemotePatAuth:
             def wait(self, timeout=None):
                 return None
 
+            def communicate(self, timeout=None):
+                return ("", "")
+
+            def poll(self):
+                return self.returncode
+
         def _fake_popen(*args, **kwargs):
             captured["args"] = args
             captured["kwargs"] = kwargs
@@ -177,6 +183,12 @@ class TestRemotePatAuth:
             def wait(self, timeout=None):
                 return None
 
+            def communicate(self, timeout=None):
+                return ("", "")
+
+            def poll(self):
+                return self.returncode
+
         def _fake_popen(*args, **kwargs):
             captured["kwargs"] = kwargs
             return DummyProc()
@@ -211,6 +223,12 @@ class TestRemotePatAuth:
 
             def wait(self, timeout=None):
                 return None
+
+            def communicate(self, timeout=None):
+                return ("", "")
+
+            def poll(self):
+                return self.returncode
 
         def _fake_popen(*args, **kwargs):
             captured["kwargs"] = kwargs
