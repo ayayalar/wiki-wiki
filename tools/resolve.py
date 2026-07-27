@@ -36,6 +36,7 @@ log = logging.getLogger(__name__)
 # Diagnosis helpers
 # ---------------------------------------------------------------------------
 
+
 def _has_merge_in_progress(wiki: Path) -> bool:
     git_dir = _get_git_dir(wiki)
     if git_dir is None:
@@ -133,11 +134,10 @@ def finish_merge(wiki: Path) -> bool:
     run_git(["add", "--sparse", "-A"], cwd=wiki, check=False)
     commit_result = run_git(
         ["commit", *_no_verify_flag(), "--no-edit"],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
-    if commit_result.returncode != 0:
-        return False
-    return True
+    return commit_result.returncode == 0
 
 
 def resolve_merge(wiki: Path, repo_name: str) -> bool:
@@ -156,15 +156,14 @@ def resolve_merge(wiki: Path, repo_name: str) -> bool:
     run_git(["add", "--sparse", "-A"], cwd=wiki, check=False)
     commit_result = run_git(
         ["commit", *_no_verify_flag(), "--no-edit"],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     # A non-zero commit means the merge is NOT resolved (identity unset, a
     # failing pre-commit hook, or files still unmerged). Report failure so
     # callers don't push a pre-merge HEAD with MERGE_HEAD still on disk and
     # then report success. Mirrors finish_merge's commit check.
-    if commit_result.returncode != 0:
-        return False
-    return True
+    return commit_result.returncode == 0
 
 
 def auto_resolve_conflicts(wiki: Path, repo_name: str) -> bool:
@@ -179,10 +178,10 @@ def auto_resolve_conflicts(wiki: Path, repo_name: str) -> bool:
 # same ff-then-fallback-merge-then-classify block and they had drifted apart —
 # the same failure state produced "resolved", "partial", "error", or
 # "merge_conflict" depending on entry point.
-MERGE_CLEAN = "clean"        # fast-forwarded or merged with no conflicts
+MERGE_CLEAN = "clean"  # fast-forwarded or merged with no conflicts
 MERGE_CONFLICT = "conflict"  # merge started, unmerged files present (MERGE_HEAD live)
-MERGE_STUCK = "stuck"        # merge started but failed with no unmerged files (MERGE_HEAD live)
-MERGE_REFUSED = "refused"    # git declined to start the merge; nothing changed
+MERGE_STUCK = "stuck"  # merge started but failed with no unmerged files (MERGE_HEAD live)
+MERGE_REFUSED = "refused"  # git declined to start the merge; nothing changed
 
 
 def merge_remote_ref(wiki: Path) -> str:
@@ -200,7 +199,8 @@ def merge_remote_ref(wiki: Path) -> str:
     # Shallow clones may have unrelated histories — retry with a real merge.
     merge = run_git(
         ["merge", "--allow-unrelated-histories", "--no-edit", WIKI_REMOTE_REF],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     if merge.returncode == 0:
         return MERGE_CLEAN
@@ -264,7 +264,7 @@ def _get_git_dir(wiki: Path) -> Path | None:
         try:
             text = dot_git.read_text(encoding="utf-8").strip()
             if text.startswith("gitdir:"):
-                target = text[len("gitdir:"):].strip()
+                target = text[len("gitdir:") :].strip()
                 p = Path(target)
                 if not p.is_absolute():
                     p = (wiki / p).resolve()
@@ -281,7 +281,9 @@ def _is_behind_remote(wiki: Path, repo_name: str, branch: str) -> bool:
     path = f"{repo_name}/{branch}/"
     result = run_git(
         ["rev-list", "--count", f"HEAD..{remote_ref}", "--", path],
-        cwd=wiki, check=False, timeout=30,
+        cwd=wiki,
+        check=False,
+        timeout=30,
     )
     if result.returncode != 0:
         return False
@@ -290,7 +292,9 @@ def _is_behind_remote(wiki: Path, repo_name: str, branch: str) -> bool:
         return False
     result2 = run_git(
         ["rev-list", "--count", f"{remote_ref}..HEAD", "--", path],
-        cwd=wiki, check=False, timeout=30,
+        cwd=wiki,
+        check=False,
+        timeout=30,
     )
     local_ahead = int(result2.stdout.strip() or "0") if result2.returncode == 0 else 0
     return local_ahead == 0
@@ -303,7 +307,9 @@ def _is_ahead_of_remote(wiki: Path, repo_name: str, branch: str) -> bool:
     path = f"{repo_name}/{branch}/"
     result = run_git(
         ["rev-list", "--count", f"{remote_ref}..HEAD", "--", path],
-        cwd=wiki, check=False, timeout=30,
+        cwd=wiki,
+        check=False,
+        timeout=30,
     )
     if result.returncode != 0:
         return False
@@ -312,7 +318,9 @@ def _is_ahead_of_remote(wiki: Path, repo_name: str, branch: str) -> bool:
         return False
     result2 = run_git(
         ["rev-list", "--count", f"HEAD..{remote_ref}", "--", path],
-        cwd=wiki, check=False, timeout=30,
+        cwd=wiki,
+        check=False,
+        timeout=30,
     )
     if result2.returncode != 0:
         return False
@@ -327,11 +335,15 @@ def _is_diverged(wiki: Path, repo_name: str, branch: str) -> bool:
     path = f"{repo_name}/{branch}/"
     result_local = run_git(
         ["rev-list", "--count", f"{remote_ref}..HEAD", "--", path],
-        cwd=wiki, check=False, timeout=30,
+        cwd=wiki,
+        check=False,
+        timeout=30,
     )
     result_remote = run_git(
         ["rev-list", "--count", f"HEAD..{remote_ref}", "--", path],
-        cwd=wiki, check=False, timeout=30,
+        cwd=wiki,
+        check=False,
+        timeout=30,
     )
     if result_local.returncode != 0 or result_remote.returncode != 0:
         # rev-list couldn't compute counts (e.g. shallow-graft edge cases).
@@ -342,7 +354,9 @@ def _is_diverged(wiki: Path, repo_name: str, branch: str) -> bool:
         # "diverged" for perfectly in-sync wikis).
         run_git(
             ["merge", "--no-commit", "--no-ff", remote_ref],
-            cwd=wiki, check=False, timeout=30,
+            cwd=wiki,
+            check=False,
+            timeout=30,
         )
         diverged = _has_merge_in_progress(wiki)
         _abort_merge_safe(wiki)
@@ -367,9 +381,7 @@ def _has_rebase_in_progress(wiki: Path) -> bool:
         return True
     if (git_dir / "rebase-merge").is_dir():
         return True
-    if (git_dir / "rebase-apply").is_dir():
-        return True
-    return False
+    return bool((git_dir / "rebase-apply").is_dir())
 
 
 def _has_cherry_pick_in_progress(wiki: Path) -> bool:
@@ -394,7 +406,9 @@ def _remote_exists(wiki: Path) -> bool:
 def _remote_is_reachable(wiki: Path) -> bool:
     ls_result = run_git(
         ["-c", "protocol.file.allow=always", "ls-remote", "origin", WIKI_REMOTE_BRANCH],
-        cwd=wiki, check=False, timeout=30,
+        cwd=wiki,
+        check=False,
+        timeout=30,
     )
     return ls_result.returncode == 0
 
@@ -441,6 +455,7 @@ def _sparse_checkout_current(wiki: Path, pattern: str) -> bool:
 # Diagnosis check registry
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DiagnosisCheck:
     name: str
@@ -454,11 +469,13 @@ def _check_wiki_not_initialized(wiki: Path, _rn: str, _br: str) -> dict | None:
         return {
             "issue": "wiki_not_initialized",
             "description": "Wiki submodule is not checked out.",
-            "resolutions": [{
-                "id": "wiki_not_initialized:pull",
-                "description": "Pull the wiki from remote to set it up.",
-                "destructive": False,
-            }],
+            "resolutions": [
+                {
+                    "id": "wiki_not_initialized:pull",
+                    "description": "Pull the wiki from remote to set it up.",
+                    "destructive": False,
+                }
+            ],
         }
     return None
 
@@ -471,14 +488,16 @@ def _check_corrupted_submodule(wiki: Path, _rn: str, _br: str) -> dict | None:
                 "Wiki submodule appears corrupted (git operations fail consistently). "
                 "The local wiki directory needs to be reinitialized."
             ),
-            "resolutions": [{
-                "id": "corrupted_submodule:reinitialize",
-                "description": (
-                    "Delete the local wiki directory and reinitialize it from "
-                    "the remote. Local-only changes will be lost."
-                ),
-                "destructive": True,
-            }],
+            "resolutions": [
+                {
+                    "id": "corrupted_submodule:reinitialize",
+                    "description": (
+                        "Delete the local wiki directory and reinitialize it from "
+                        "the remote. Local-only changes will be lost."
+                    ),
+                    "destructive": True,
+                }
+            ],
         }
     return None
 
@@ -491,11 +510,13 @@ def _check_index_locked(wiki: Path, _rn: str, _br: str) -> dict | None:
                 "A git lock file exists, likely from a previously interrupted operation. "
                 "This prevents any wiki operations."
             ),
-            "resolutions": [{
-                "id": "index_locked:remove_lock",
-                "description": "Remove the stale lock file so wiki operations can proceed.",
-                "destructive": False,
-            }],
+            "resolutions": [
+                {
+                    "id": "index_locked:remove_lock",
+                    "description": "Remove the stale lock file so wiki operations can proceed.",
+                    "destructive": False,
+                }
+            ],
         }
     return None
 
@@ -513,7 +534,7 @@ def _check_wiki_content_corrupt(wiki: Path, repo_name: str, branch: str) -> dict
             f.read_text(encoding="utf-8", errors="strict")
         except UnicodeDecodeError:
             corrupted_files.append(str(f.relative_to(repo_wiki_path)))
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110
             pass
     if corrupted_files:
         return {
@@ -524,14 +545,16 @@ def _check_wiki_content_corrupt(wiki: Path, repo_name: str, branch: str) -> dict
                 + (f" (and {len(corrupted_files) - 5} more)" if len(corrupted_files) > 5 else "")
             ),
             "corrupted_files": corrupted_files,
-            "resolutions": [{
-                "id": "wiki_content_corrupt:sanitize",
-                "description": (
-                    "Re-read corrupted files with error recovery and re-write them as clean UTF-8. "
-                    "Non-UTF-8 bytes will be replaced with � (U+FFFD)."
-                ),
-                "destructive": False,
-            }],
+            "resolutions": [
+                {
+                    "id": "wiki_content_corrupt:sanitize",
+                    "description": (
+                        "Re-read corrupted files with error recovery and re-write them as clean UTF-8. "
+                        "Non-UTF-8 bytes will be replaced with � (U+FFFD)."
+                    ),
+                    "destructive": False,
+                }
+            ],
         }
     return None
 
@@ -548,19 +571,19 @@ def _check_merge_conflict(wiki: Path, _rn: str, _br: str) -> dict | None:
             {
                 "id": "merge_conflict:keep_local",
                 "description": "Keep your local version of all conflicted files, "
-                               "discard the remote changes, and complete the merge.",
+                "discard the remote changes, and complete the merge.",
                 "destructive": False,
             },
             {
                 "id": "merge_conflict:keep_remote",
                 "description": "Keep the remote version of all conflicted files, "
-                               "discard your local changes, and complete the merge.",
+                "discard your local changes, and complete the merge.",
                 "destructive": True,
             },
             {
                 "id": "merge_conflict:abort_merge",
                 "description": "Cancel the merge entirely and return to the state "
-                               "before the merge started.",
+                "before the merge started.",
                 "destructive": False,
             },
         ],
@@ -577,19 +600,19 @@ def _check_rebase_in_progress(wiki: Path, _rn: str, _br: str) -> dict | None:
             {
                 "id": "rebase_in_progress:continue_rebase",
                 "description": "Stage all resolved files and continue the rebase. "
-                               "Use this after resolving conflicts.",
+                "Use this after resolving conflicts.",
                 "destructive": False,
             },
             {
                 "id": "rebase_in_progress:abort_rebase",
                 "description": "Cancel the rebase and return to the state "
-                               "before the rebase started.",
+                "before the rebase started.",
                 "destructive": False,
             },
             {
                 "id": "rebase_in_progress:skip_and_continue",
                 "description": "Skip the current conflicting commit and continue "
-                               "the rebase with the remaining commits.",
+                "the rebase with the remaining commits.",
                 "destructive": False,
             },
         ],
@@ -606,13 +629,13 @@ def _check_cherry_pick_in_progress(wiki: Path, _rn: str, _br: str) -> dict | Non
             {
                 "id": "cherry_pick_in_progress:continue_cherry_pick",
                 "description": "Stage all resolved files and continue the cherry-pick. "
-                               "Use this after resolving conflicts.",
+                "Use this after resolving conflicts.",
                 "destructive": False,
             },
             {
                 "id": "cherry_pick_in_progress:abort_cherry_pick",
                 "description": "Cancel the cherry-pick and return to the state "
-                               "before the cherry-pick started.",
+                "before the cherry-pick started.",
                 "destructive": False,
             },
         ],
@@ -629,13 +652,13 @@ def _check_revert_in_progress(wiki: Path, _rn: str, _br: str) -> dict | None:
             {
                 "id": "revert_in_progress:continue_revert",
                 "description": "Stage all resolved files and continue the revert. "
-                               "Use this after resolving conflicts.",
+                "Use this after resolving conflicts.",
                 "destructive": False,
             },
             {
                 "id": "revert_in_progress:abort_revert",
                 "description": "Cancel the revert and return to the state "
-                               "before the revert started.",
+                "before the revert started.",
                 "destructive": False,
             },
         ],
@@ -651,13 +674,15 @@ def _check_missing_remote(wiki: Path, _rn: str, _br: str) -> dict | None:
                 "The 'origin' remote is not configured or has no URL. "
                 "Wiki cannot sync without a remote."
             ),
-            "resolutions": [{
-                "id": "missing_remote:reconfigure_remote",
-                "description": (
-                    "Configure the remote URL from WIKI_MCP_REMOTE_URL environment variable."
-                ),
-                "destructive": False,
-            }],
+            "resolutions": [
+                {
+                    "id": "missing_remote:reconfigure_remote",
+                    "description": (
+                        "Configure the remote URL from WIKI_MCP_REMOTE_URL environment variable."
+                    ),
+                    "destructive": False,
+                }
+            ],
             "_remote_url_set": bool(remote_url),
         }
     return None
@@ -701,20 +726,22 @@ def _check_detached_head(wiki: Path, _rn: str, _br: str) -> dict | None:
                 "Wiki is in a detached HEAD state. Operations should be "
                 "performed on the wiki branch."
             ),
-            "resolutions": [{
-                "id": "detached_head:checkout_wiki_branch",
-                "description": "Checkout the wiki branch to resume normal operations.",
-                "destructive": False,
-            }],
+            "resolutions": [
+                {
+                    "id": "detached_head:checkout_wiki_branch",
+                    "description": "Checkout the wiki branch to resume normal operations.",
+                    "destructive": False,
+                }
+            ],
         }
     return None
 
 
 def _check_sync_state(wiki: Path, repo_name: str, branch: str) -> dict | None:
     run_git(
-        ["-c", "protocol.file.allow=always",
-         "fetch", "origin", WIKI_REMOTE_BRANCH, "--deepen=50"],
-        cwd=wiki, check=False,
+        ["-c", "protocol.file.allow=always", "fetch", "origin", WIKI_REMOTE_BRANCH, "--deepen=50"],
+        cwd=wiki,
+        check=False,
     )
     if _is_behind_remote(wiki, repo_name, branch):
         return {
@@ -745,9 +772,7 @@ def _check_sync_state(wiki: Path, repo_name: str, branch: str) -> dict | None:
     if _is_ahead_of_remote(wiki, repo_name, branch):
         return {
             "issue": "ahead_of_remote",
-            "description": (
-                "Your local wiki has commits that haven't been pushed to the remote."
-            ),
+            "description": ("Your local wiki has commits that haven't been pushed to the remote."),
             "resolutions": [
                 {
                     "id": "ahead_of_remote:push",
@@ -779,8 +804,7 @@ def _check_sync_state(wiki: Path, repo_name: str, branch: str) -> dict | None:
         return {
             "issue": "diverged",
             "description": (
-                "Your local wiki and the remote have diverged. Both have "
-                "changes the other doesn't."
+                "Your local wiki and the remote have diverged. Both have changes the other doesn't."
             ),
             "resolutions": [
                 {
@@ -825,14 +849,16 @@ def _check_sparse_checkout_stale(wiki: Path, repo_name: str, branch: str) -> dic
                 f"Wiki sparse-checkout pattern doesn't include "
                 f"'{sparse_pattern}'. Files may be missing from the working tree."
             ),
-            "resolutions": [{
-                "id": "sparse_checkout_stale:refresh",
-                "description": (
-                    "Re-apply the sparse-checkout pattern to restore "
-                    f"the '{sparse_pattern}' folder."
-                ),
-                "destructive": False,
-            }],
+            "resolutions": [
+                {
+                    "id": "sparse_checkout_stale:refresh",
+                    "description": (
+                        "Re-apply the sparse-checkout pattern to restore "
+                        f"the '{sparse_pattern}' folder."
+                    ),
+                    "destructive": False,
+                }
+            ],
         }
     return None
 
@@ -841,12 +867,13 @@ def _check_dirty_worktree(wiki: Path, _rn: str, _br: str) -> dict | None:
     if not is_dirty(wiki):
         return None
     result = run_git(
-        ["status", "--porcelain"], cwd=wiki, check=False, timeout=30,
+        ["status", "--porcelain"],
+        cwd=wiki,
+        check=False,
+        timeout=30,
     )
     changed_files = [
-        line[3:].strip()
-        for line in result.stdout.strip().splitlines()
-        if line.strip()
+        line[3:].strip() for line in result.stdout.strip().splitlines() if line.strip()
     ]
     return {
         "issue": "dirty_worktree",
@@ -871,20 +898,44 @@ def _check_dirty_worktree(wiki: Path, _rn: str, _br: str) -> dict | None:
 
 
 _DIAGNOSIS_CHECKS: list[DiagnosisCheck] = [
-    DiagnosisCheck("wiki_not_initialized", blocking=True, needs_context=False, run=_check_wiki_not_initialized),
-    DiagnosisCheck("corrupted_submodule", blocking=True, needs_context=False, run=_check_corrupted_submodule),
+    DiagnosisCheck(
+        "wiki_not_initialized", blocking=True, needs_context=False, run=_check_wiki_not_initialized
+    ),
+    DiagnosisCheck(
+        "corrupted_submodule", blocking=True, needs_context=False, run=_check_corrupted_submodule
+    ),
     DiagnosisCheck("index_locked", blocking=False, needs_context=False, run=_check_index_locked),
-    DiagnosisCheck("wiki_content_corrupt", blocking=False, needs_context=True, run=_check_wiki_content_corrupt),
+    DiagnosisCheck(
+        "wiki_content_corrupt", blocking=False, needs_context=True, run=_check_wiki_content_corrupt
+    ),
     DiagnosisCheck("merge_conflict", blocking=True, needs_context=False, run=_check_merge_conflict),
-    DiagnosisCheck("rebase_in_progress", blocking=True, needs_context=False, run=_check_rebase_in_progress),
-    DiagnosisCheck("cherry_pick_in_progress", blocking=True, needs_context=False, run=_check_cherry_pick_in_progress),
-    DiagnosisCheck("revert_in_progress", blocking=True, needs_context=False, run=_check_revert_in_progress),
+    DiagnosisCheck(
+        "rebase_in_progress", blocking=True, needs_context=False, run=_check_rebase_in_progress
+    ),
+    DiagnosisCheck(
+        "cherry_pick_in_progress",
+        blocking=True,
+        needs_context=False,
+        run=_check_cherry_pick_in_progress,
+    ),
+    DiagnosisCheck(
+        "revert_in_progress", blocking=True, needs_context=False, run=_check_revert_in_progress
+    ),
     DiagnosisCheck("missing_remote", blocking=True, needs_context=False, run=_check_missing_remote),
-    DiagnosisCheck("remote_unreachable", blocking=True, needs_context=False, run=_check_remote_unreachable),
+    DiagnosisCheck(
+        "remote_unreachable", blocking=True, needs_context=False, run=_check_remote_unreachable
+    ),
     DiagnosisCheck("detached_head", blocking=False, needs_context=False, run=_check_detached_head),
     DiagnosisCheck("sync_state", blocking=False, needs_context=False, run=_check_sync_state),
-    DiagnosisCheck("sparse_checkout_stale", blocking=False, needs_context=True, run=_check_sparse_checkout_stale),
-    DiagnosisCheck("dirty_worktree", blocking=False, needs_context=False, run=_check_dirty_worktree),
+    DiagnosisCheck(
+        "sparse_checkout_stale",
+        blocking=False,
+        needs_context=True,
+        run=_check_sparse_checkout_stale,
+    ),
+    DiagnosisCheck(
+        "dirty_worktree", blocking=False, needs_context=False, run=_check_dirty_worktree
+    ),
 ]
 
 
@@ -910,14 +961,15 @@ def _diagnose(wiki: Path, repo_name: str = "", branch: str = "") -> list[dict]:
                 return issues
 
     if not issues:
-        issues.append({
-            "issue": "none",
-            "description": "No issues detected. Wiki is healthy.",
-            "resolutions": [],
-        })
+        issues.append(
+            {
+                "issue": "none",
+                "description": "No issues detected. Wiki is healthy.",
+                "resolutions": [],
+            }
+        )
 
     return issues
-
 
 
 # ---------------------------------------------------------------------------
@@ -934,6 +986,7 @@ def _action(id: str):
     def register(fn):
         _ACTION_HANDLERS[id] = fn
         return fn
+
     return register
 
 
@@ -951,7 +1004,8 @@ def _handle_merge_conflict_keep_local(wiki: Path, repo_name: str, branch: str) -
         run_git(["add", "--sparse", "--", f], cwd=wiki, check=False)
     commit_result = run_git(
         ["commit", *_no_verify_flag(), "--no-edit"],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     if commit_result.returncode != 0:
         _abort_merge_safe(wiki)
@@ -973,6 +1027,7 @@ def _handle_merge_conflict_keep_local(wiki: Path, repo_name: str, branch: str) -
         "message": f"Kept local version of {len(unmerged)} file(s) and completed the merge.",
     }
 
+
 @_action("merge_conflict:keep_remote")
 def _handle_merge_conflict_keep_remote(wiki: Path, repo_name: str, branch: str) -> dict:
 
@@ -984,7 +1039,8 @@ def _handle_merge_conflict_keep_remote(wiki: Path, repo_name: str, branch: str) 
         run_git(["add", "--sparse", "--", f], cwd=wiki, check=False)
     commit_result = run_git(
         ["commit", *_no_verify_flag(), "--no-edit"],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     if commit_result.returncode != 0:
         _abort_merge_safe(wiki)
@@ -1006,6 +1062,7 @@ def _handle_merge_conflict_keep_remote(wiki: Path, repo_name: str, branch: str) 
         "message": f"Kept remote version of {len(unmerged)} file(s) and completed the merge.",
     }
 
+
 @_action("merge_conflict:abort_merge")
 def _handle_merge_conflict_abort_merge(wiki: Path, repo_name: str, branch: str) -> dict:
 
@@ -1018,13 +1075,15 @@ def _handle_merge_conflict_abort_merge(wiki: Path, repo_name: str, branch: str) 
         "message": "Merge aborted. Wiki is back to pre-merge state.",
     }
 
+
 @_action("dirty_worktree:commit_and_push")
 def _handle_dirty_worktree_commit_and_push(wiki: Path, repo_name: str, branch: str) -> dict:
 
     run_git(["add", "--sparse", "-A"], cwd=wiki, check=False)
     commit_result = run_git(
         ["commit", *_no_verify_flag(), "-m", "wiki: commit pending changes"],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     if commit_result.returncode != 0:
         combined = f"{commit_result.stdout}\n{commit_result.stderr}".strip()
@@ -1040,7 +1099,8 @@ def _handle_dirty_worktree_commit_and_push(wiki: Path, repo_name: str, branch: s
         }
     push = run_git(
         ["push", "origin", f"HEAD:refs/heads/{WIKI_REMOTE_BRANCH}"],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     if push.returncode != 0:
         return {
@@ -1054,6 +1114,7 @@ def _handle_dirty_worktree_commit_and_push(wiki: Path, repo_name: str, branch: s
         "message": "Committed and pushed all pending wiki changes.",
     }
 
+
 @_action("dirty_worktree:discard_changes")
 def _handle_dirty_worktree_discard_changes(wiki: Path, repo_name: str, branch: str) -> dict:
 
@@ -1065,6 +1126,7 @@ def _handle_dirty_worktree_discard_changes(wiki: Path, repo_name: str, branch: s
         "message": "Discarded all uncommitted wiki changes.",
     }
 
+
 @_action("diverged:merge")
 def _handle_diverged_merge(wiki: Path, repo_name: str, branch: str) -> dict:
 
@@ -1073,22 +1135,25 @@ def _handle_diverged_merge(wiki: Path, repo_name: str, branch: str) -> dict:
         return resp
     push = run_git(
         ["push", "origin", f"HEAD:refs/heads/{WIKI_REMOTE_BRANCH}"],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     return {
         "status": "resolved",
         "action": "diverged:merge",
-        "message": "Merged remote changes and pushed." if push.returncode == 0
-                   else "Merged remote changes. Push failed — retry push_wiki.",
+        "message": "Merged remote changes and pushed."
+        if push.returncode == 0
+        else "Merged remote changes. Push failed — retry push_wiki.",
     }
+
 
 @_action("diverged:force_push")
 def _handle_diverged_force_push(wiki: Path, repo_name: str, branch: str) -> dict:
 
     push = run_git(
-        ["push", "--force-with-lease", "origin",
-         f"HEAD:refs/heads/{WIKI_REMOTE_BRANCH}"],
-        cwd=wiki, check=False,
+        ["push", "--force-with-lease", "origin", f"HEAD:refs/heads/{WIKI_REMOTE_BRANCH}"],
+        cwd=wiki,
+        check=False,
     )
     if push.returncode != 0:
         return {
@@ -1112,18 +1177,21 @@ def _handle_diverged_force_push(wiki: Path, repo_name: str, branch: str) -> dict
         ),
     }
 
+
 @_action("diverged:reset_to_remote")
 def _handle_diverged_reset_to_remote(wiki: Path, repo_name: str, branch: str) -> dict:
 
     run_git(
         ["reset", "--hard", WIKI_REMOTE_REF],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     return {
         "status": "resolved",
         "action": "diverged:reset_to_remote",
         "message": "Reset local wiki to match remote. Local-only changes have been discarded.",
     }
+
 
 @_action("index_locked:remove_lock")
 def _handle_index_locked_remove_lock(wiki: Path, repo_name: str, branch: str) -> dict:
@@ -1141,6 +1209,7 @@ def _handle_index_locked_remove_lock(wiki: Path, repo_name: str, branch: str) ->
         "action": "index_locked:remove_lock",
         "message": "Removed stale lock file. Wiki operations should work now.",
     }
+
 
 @_action("wiki_content_corrupt:sanitize")
 def _handle_wiki_content_corrupt_sanitize(wiki: Path, repo_name: str, branch: str) -> dict:
@@ -1165,7 +1234,7 @@ def _handle_wiki_content_corrupt_sanitize(wiki: Path, repo_name: str, branch: st
             content = f.read_text(encoding="utf-8", errors="replace")
             f.write_text(content, encoding="utf-8")
             sanitized.append(str(f.relative_to(repo_wiki_path)))
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110
             pass
 
     if sanitized:
@@ -1181,13 +1250,14 @@ def _handle_wiki_content_corrupt_sanitize(wiki: Path, repo_name: str, branch: st
         "message": "No corrupted files found.",
     }
 
+
 @_action("behind_remote:pull_and_merge")
 def _handle_behind_remote_pull_and_merge(wiki: Path, repo_name: str, branch: str) -> dict:
 
     run_git(
-        ["-c", "protocol.file.allow=always",
-         "fetch", "origin", WIKI_REMOTE_BRANCH],
-        cwd=wiki, check=False,
+        ["-c", "protocol.file.allow=always", "fetch", "origin", WIKI_REMOTE_BRANCH],
+        cwd=wiki,
+        check=False,
     )
     resp = merge_and_autoresolve(wiki, repo_name, "behind_remote:pull_and_merge")
     if resp is not None:
@@ -1198,12 +1268,14 @@ def _handle_behind_remote_pull_and_merge(wiki: Path, repo_name: str, branch: str
         "message": "Pulled and merged remote changes into local wiki.",
     }
 
+
 @_action("behind_remote:reset_to_remote")
 def _handle_behind_remote_reset_to_remote(wiki: Path, repo_name: str, branch: str) -> dict:
 
     run_git(
         ["reset", "--hard", WIKI_REMOTE_REF],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     return {
         "status": "resolved",
@@ -1211,13 +1283,14 @@ def _handle_behind_remote_reset_to_remote(wiki: Path, repo_name: str, branch: st
         "message": "Reset local wiki to match remote. Local-only changes have been discarded.",
     }
 
+
 @_action("ahead_of_remote:push")
 def _handle_ahead_of_remote_push(wiki: Path, repo_name: str, branch: str) -> dict:
 
     run_git(
-        ["-c", "protocol.file.allow=always",
-         "fetch", "origin", WIKI_REMOTE_BRANCH, "--deepen=10"],
-        cwd=wiki, check=False,
+        ["-c", "protocol.file.allow=always", "fetch", "origin", WIKI_REMOTE_BRANCH, "--deepen=10"],
+        cwd=wiki,
+        check=False,
     )
     if ref_exists(WIKI_REMOTE_REF, cwd=wiki):
         resp = merge_and_autoresolve(wiki, repo_name, "ahead_of_remote:push")
@@ -1225,7 +1298,8 @@ def _handle_ahead_of_remote_push(wiki: Path, repo_name: str, branch: str) -> dic
             return resp
     push = run_git(
         ["push", "origin", f"HEAD:refs/heads/{WIKI_REMOTE_BRANCH}"],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     if push.returncode != 0:
         return {
@@ -1239,6 +1313,7 @@ def _handle_ahead_of_remote_push(wiki: Path, repo_name: str, branch: str) -> dic
         "message": "Synced with remote and pushed local changes.",
     }
 
+
 @_action("ahead_of_remote:stash_pull_merge")
 def _handle_ahead_of_remote_stash_pull_merge(wiki: Path, repo_name: str, branch: str) -> dict:
 
@@ -1246,7 +1321,8 @@ def _handle_ahead_of_remote_stash_pull_merge(wiki: Path, repo_name: str, branch:
     if stash.returncode != 0:
         push = run_git(
             ["push", "origin", f"HEAD:refs/heads/{WIKI_REMOTE_BRANCH}"],
-            cwd=wiki, check=False,
+            cwd=wiki,
+            check=False,
         )
         if push.returncode != 0:
             return {
@@ -1260,14 +1336,15 @@ def _handle_ahead_of_remote_stash_pull_merge(wiki: Path, repo_name: str, branch:
             "message": "No changes to stash. Pushed local changes directly.",
         }
     run_git(
-        ["-c", "protocol.file.allow=always",
-         "fetch", "origin", WIKI_REMOTE_BRANCH, "--deepen=10"],
-        cwd=wiki, check=False,
+        ["-c", "protocol.file.allow=always", "fetch", "origin", WIKI_REMOTE_BRANCH, "--deepen=10"],
+        cwd=wiki,
+        check=False,
     )
     if ref_exists(WIKI_REMOTE_REF, cwd=wiki):
         run_git(
             ["merge", "--ff-only", WIKI_REMOTE_REF],
-            cwd=wiki, check=False,
+            cwd=wiki,
+            check=False,
         )
     pop = run_git(["stash", "pop"], cwd=wiki, check=False)
     if pop.returncode != 0:
@@ -1284,22 +1361,25 @@ def _handle_ahead_of_remote_stash_pull_merge(wiki: Path, repo_name: str, branch:
         }
     push = run_git(
         ["push", "origin", f"HEAD:refs/heads/{WIKI_REMOTE_BRANCH}"],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     return {
         "status": "resolved" if push.returncode == 0 else "partial",
         "action": "ahead_of_remote:stash_pull_merge",
         "message": "Stashed changes, pulled remote, re-applied stash, and pushed."
-                   if push.returncode == 0
-                   else f"Stash applied but push failed: {push.stderr.strip()}",
+        if push.returncode == 0
+        else f"Stash applied but push failed: {push.stderr.strip()}",
     }
+
 
 @_action("ahead_of_remote:discard_local")
 def _handle_ahead_of_remote_discard_local(wiki: Path, repo_name: str, branch: str) -> dict:
 
     run_git(
         ["reset", "--hard", WIKI_REMOTE_REF],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     return {
         "status": "resolved",
@@ -1307,18 +1387,22 @@ def _handle_ahead_of_remote_discard_local(wiki: Path, repo_name: str, branch: st
         "message": "Reset local wiki to match remote. Local-only changes have been discarded.",
     }
 
+
 @_action("rebase_in_progress:continue_rebase")
 def _handle_rebase_in_progress_continue_rebase(wiki: Path, repo_name: str, branch: str) -> dict:
 
     run_git(["add", "-A"], cwd=wiki, check=False)
-    cont = run_git(["rebase", "--continue"], cwd=wiki, check=False,
-                   env_extra={"GIT_EDITOR": "true"})
+    cont = run_git(
+        ["rebase", "--continue"], cwd=wiki, check=False, env_extra={"GIT_EDITOR": "true"}
+    )
     return {
         "status": "resolved" if cont.returncode == 0 else "partial",
         "action": "rebase_in_progress:continue_rebase",
-        "message": "Continued rebase." if cont.returncode == 0
-                   else f"Rebase continue failed: {cont.stderr.strip()}",
+        "message": "Continued rebase."
+        if cont.returncode == 0
+        else f"Rebase continue failed: {cont.stderr.strip()}",
     }
+
 
 @_action("rebase_in_progress:abort_rebase")
 def _handle_rebase_in_progress_abort_rebase(wiki: Path, repo_name: str, branch: str) -> dict:
@@ -1330,6 +1414,7 @@ def _handle_rebase_in_progress_abort_rebase(wiki: Path, repo_name: str, branch: 
         "message": "Rebase aborted. Wiki is back to pre-rebase state.",
     }
 
+
 @_action("rebase_in_progress:skip_and_continue")
 def _handle_rebase_in_progress_skip_and_continue(wiki: Path, repo_name: str, branch: str) -> dict:
 
@@ -1340,21 +1425,29 @@ def _handle_rebase_in_progress_skip_and_continue(wiki: Path, repo_name: str, bra
         "message": "Skipped current commit and continued rebase.",
     }
 
+
 @_action("cherry_pick_in_progress:continue_cherry_pick")
-def _handle_cherry_pick_in_progress_continue_cherry_pick(wiki: Path, repo_name: str, branch: str) -> dict:
+def _handle_cherry_pick_in_progress_continue_cherry_pick(
+    wiki: Path, repo_name: str, branch: str
+) -> dict:
 
     run_git(["add", "-A"], cwd=wiki, check=False)
-    cont = run_git(["cherry-pick", "--continue"], cwd=wiki, check=False,
-                   env_extra={"GIT_EDITOR": "true"})
+    cont = run_git(
+        ["cherry-pick", "--continue"], cwd=wiki, check=False, env_extra={"GIT_EDITOR": "true"}
+    )
     return {
         "status": "resolved" if cont.returncode == 0 else "partial",
         "action": "cherry_pick_in_progress:continue_cherry_pick",
-        "message": "Continued cherry-pick." if cont.returncode == 0
-                   else f"Cherry-pick continue failed: {cont.stderr.strip()}",
+        "message": "Continued cherry-pick."
+        if cont.returncode == 0
+        else f"Cherry-pick continue failed: {cont.stderr.strip()}",
     }
 
+
 @_action("cherry_pick_in_progress:abort_cherry_pick")
-def _handle_cherry_pick_in_progress_abort_cherry_pick(wiki: Path, repo_name: str, branch: str) -> dict:
+def _handle_cherry_pick_in_progress_abort_cherry_pick(
+    wiki: Path, repo_name: str, branch: str
+) -> dict:
 
     run_git(["cherry-pick", "--abort"], cwd=wiki, check=False)
     return {
@@ -1363,18 +1456,22 @@ def _handle_cherry_pick_in_progress_abort_cherry_pick(wiki: Path, repo_name: str
         "message": "Cherry-pick aborted. Wiki is back to pre-cherry-pick state.",
     }
 
+
 @_action("revert_in_progress:continue_revert")
 def _handle_revert_in_progress_continue_revert(wiki: Path, repo_name: str, branch: str) -> dict:
 
     run_git(["add", "-A"], cwd=wiki, check=False)
-    cont = run_git(["revert", "--continue"], cwd=wiki, check=False,
-                   env_extra={"GIT_EDITOR": "true"})
+    cont = run_git(
+        ["revert", "--continue"], cwd=wiki, check=False, env_extra={"GIT_EDITOR": "true"}
+    )
     return {
         "status": "resolved" if cont.returncode == 0 else "partial",
         "action": "revert_in_progress:continue_revert",
-        "message": "Continued revert." if cont.returncode == 0
-                   else f"Revert continue failed: {cont.stderr.strip()}",
+        "message": "Continued revert."
+        if cont.returncode == 0
+        else f"Revert continue failed: {cont.stderr.strip()}",
     }
+
 
 @_action("revert_in_progress:abort_revert")
 def _handle_revert_in_progress_abort_revert(wiki: Path, repo_name: str, branch: str) -> dict:
@@ -1385,6 +1482,7 @@ def _handle_revert_in_progress_abort_revert(wiki: Path, repo_name: str, branch: 
         "action": "revert_in_progress:abort_revert",
         "message": "Revert aborted. Wiki is back to pre-revert state.",
     }
+
 
 @_action("missing_remote:reconfigure_remote")
 def _handle_missing_remote_reconfigure_remote(wiki: Path, repo_name: str, branch: str) -> dict:
@@ -1401,12 +1499,14 @@ def _handle_missing_remote_reconfigure_remote(wiki: Path, repo_name: str, branch
         }
     result = run_git(
         ["remote", "set-url", "origin", remote_url],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     if result.returncode != 0:
         add = run_git(
             ["remote", "add", "origin", remote_url],
-            cwd=wiki, check=False,
+            cwd=wiki,
+            check=False,
         )
         if add.returncode != 0:
             return {
@@ -1420,12 +1520,15 @@ def _handle_missing_remote_reconfigure_remote(wiki: Path, repo_name: str, branch
         "message": "Remote 'origin' configured with URL from WIKI_MCP_REMOTE_URL.",
     }
 
+
 @_action("remote_unreachable:retry_fetch")
 def _handle_remote_unreachable_retry_fetch(wiki: Path, repo_name: str, branch: str) -> dict:
 
     ls = run_git(
         ["-c", "protocol.file.allow=always", "ls-remote", "origin", WIKI_REMOTE_BRANCH],
-        cwd=wiki, check=False, timeout=30,
+        cwd=wiki,
+        check=False,
+        timeout=30,
     )
     if ls.returncode != 0:
         return {
@@ -1434,9 +1537,9 @@ def _handle_remote_unreachable_retry_fetch(wiki: Path, repo_name: str, branch: s
             "error": f"Remote still unreachable (ls-remote failed): {ls.stderr.strip()}",
         }
     fetch = run_git(
-        ["-c", "protocol.file.allow=always",
-         "fetch", "origin", WIKI_REMOTE_BRANCH],
-        cwd=wiki, check=False,
+        ["-c", "protocol.file.allow=always", "fetch", "origin", WIKI_REMOTE_BRANCH],
+        cwd=wiki,
+        check=False,
     )
     if fetch.returncode != 0:
         return {
@@ -1449,6 +1552,7 @@ def _handle_remote_unreachable_retry_fetch(wiki: Path, repo_name: str, branch: s
         "action": "remote_unreachable:retry_fetch",
         "message": "Successfully fetched from remote (full fetch, no depth limit).",
     }
+
 
 @_action("remote_unreachable:check_credentials")
 def _handle_remote_unreachable_check_credentials(wiki: Path, repo_name: str, branch: str) -> dict:
@@ -1465,20 +1569,23 @@ def _handle_remote_unreachable_check_credentials(wiki: Path, repo_name: str, bra
         ),
     }
 
+
 @_action("detached_head:checkout_wiki_branch")
 def _handle_detached_head_checkout_wiki_branch(wiki: Path, repo_name: str, branch: str) -> dict:
 
     result = run_git(
         ["checkout", "-B", WIKI_REMOTE_BRANCH],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     return {
         "status": "resolved" if result.returncode == 0 else "error",
         "action": "detached_head:checkout_wiki_branch",
         "message": f"Checked out '{WIKI_REMOTE_BRANCH}' branch."
-                   if result.returncode == 0
-                   else f"Checkout failed: {result.stderr.strip()}",
+        if result.returncode == 0
+        else f"Checkout failed: {result.stderr.strip()}",
     }
+
 
 @_action("corrupted_submodule:reinitialize")
 def _handle_corrupted_submodule_reinitialize(wiki: Path, repo_name: str, branch: str) -> dict:
@@ -1505,9 +1612,11 @@ def _handle_corrupted_submodule_reinitialize(wiki: Path, repo_name: str, branch:
             "error": f"Failed to remove corrupted wiki directory: {e}",
         }
     from tools.pull import pull
+
     result = pull(repo_name=repo_name or None, branch=branch or None, repo_path=str(wiki.parent))
     _reinit_depth -= 1
     return result
+
 
 @_action("sparse_checkout_stale:refresh")
 def _handle_sparse_checkout_stale_refresh(wiki: Path, repo_name: str, branch: str) -> dict:
@@ -1524,6 +1633,7 @@ def _handle_sparse_checkout_stale_refresh(wiki: Path, repo_name: str, branch: st
     run_git(["read-tree", "-mu", "HEAD"], cwd=wiki, check=False)
     run_git(["checkout", "--force", "HEAD"], cwd=wiki, check=False)
     from utils.wiki_index import WikiIndex
+
     WikiIndex._cache.clear()
     return {
         "status": "resolved",
@@ -1531,10 +1641,12 @@ def _handle_sparse_checkout_stale_refresh(wiki: Path, repo_name: str, branch: st
         "message": f"Refreshed sparse-checkout for '{pattern}'. Working tree synced.",
     }
 
+
 @_action("wiki_not_initialized:pull")
 def _handle_wiki_not_initialized_pull(wiki: Path, repo_name: str, branch: str) -> dict:
 
     from tools.pull import pull
+
     return pull(repo_name=repo_name or None, branch=branch or None, repo_path=str(wiki.parent))
 
 
@@ -1543,6 +1655,7 @@ def _execute(wiki: Path, action: str, repo_name: str = "", branch: str = "") -> 
     if handler is None:
         return {"status": "error", "error": f"Unknown action: {action!r}"}
     return handler(wiki, repo_name, branch)
+
 
 _reinit_depth = 0
 
@@ -1574,6 +1687,7 @@ class ResolveBuilder:
     ) -> ResolveBuilder:
         from config import repo_root as _default_repo_root
         from utils.git import derive_branch, derive_repo_name
+
         root = Path(repo_path).resolve() if repo_path else _default_repo_root()
         self._wiki = root / "wiki"
         # Derive from the code repo when not supplied so a direct caller (not
@@ -1609,6 +1723,7 @@ class ResolveBuilder:
         assert self._action is not None
         result = _execute(self._wiki, self._action, repo_name=self._repo_name, branch=self._branch)
         from utils.wiki_index import WikiIndex
+
         WikiIndex._cache.clear()
         return False, result  # Short-circuit: result is the final response
 
@@ -1647,8 +1762,4 @@ def resolve(
     repo_name: str | None = None,
     branch: str | None = None,
 ) -> dict:
-    return (
-        ResolveBuilder()
-        .for_wiki(repo_path, repo_name, branch)
-        .execute(action)
-    )
+    return ResolveBuilder().for_wiki(repo_path, repo_name, branch).execute(action)

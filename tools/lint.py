@@ -125,8 +125,7 @@ class LintBuilder:
 
         index_count = len(indexes)
         page_count = len(wiki_files) - index_count
-        if page_count < 0:
-            page_count = 0
+        page_count = max(page_count, 0)
 
         parts: list[str] = []
         parts.append("| Metric | Value |")
@@ -152,9 +151,7 @@ class LintBuilder:
 # ── backward-compatible entry point ────────────────────────────────────
 
 
-def lint(repo_name: str | None = None, branch: str | None = None, repo_path: str | None = None) -> dict:
-    return (
-        LintBuilder()
-        .for_repo_branch(repo_name, branch, repo_path)
-        .execute()
-    )
+def lint(
+    repo_name: str | None = None, branch: str | None = None, repo_path: str | None = None
+) -> dict:
+    return LintBuilder().for_repo_branch(repo_name, branch, repo_path).execute()

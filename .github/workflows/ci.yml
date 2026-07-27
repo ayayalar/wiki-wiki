@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+
+jobs:
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Lint (ruff check)
+        run: ruff check .
+      - name: Format (ruff format --check)
+        run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GIT_AUTHOR_NAME: ci-bot
+      GIT_AUTHOR_EMAIL: ci-bot@example.com
+      GIT_COMMITTER_NAME: ci-bot
+      GIT_COMMITTER_EMAIL: ci-bot@example.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Run tests
+        run: python -m pytest --junitxml=pytest.xml --tb=short -v
+      - name: Surface test failures as annotations
+        if: failure()
+        run: |
+          python - <<'PYEOF'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          path = "pytest.xml"
+          try:
+              tree = ET.parse(path)
+          except (FileNotFoundError, ET.ParseError) as exc:
+              print(f"::error file=pytest.xml::Could not parse {path}: {exc}")
+              sys.exit(0)
+
+          root = tree.getroot()
+          parent_map = {child: parent for parent in root.iter() for child in parent}
+
+          failures = []
+          for elem in root.iter():
+              if elem.tag not in ("failure", "error"):
+                  continue
+              tc = elem
+              while tc in parent_map and tc.tag != "testcase":
+                  tc = parent_map[tc]
+              if tc.tag == "testcase":
+                  cls = tc.get("classname", "") or ""
+                  name = tc.get("name", "") or ""
+                  fqn = f"{cls}::{name}" if (cls or name) else "<unknown>"
+              else:
+                  fqn = "<collection>"
+              msg = (elem.get("message") or (elem.text or "").strip()).strip()
+              # The ::error workflow command must be a single line. Collapse
+              # newlines (and carriage returns) into " | " so multi-line
+              # tracebacks stay readable in one annotation. Truncate to keep
+              # GitHub's annotation message cap (~4 KB).
+              msg = msg.replace("\r", " ").replace("\n", " | ")
+              if len(msg) > 4000:
+                  msg = msg[:3997] + "..."
+              failures.append((fqn, msg))
+
+          total = len(failures)
+          cap = 50
+          print(
+              f"::error file=pytest.xml::pytest failed: {total} test failure(s) "
+              f"reported in JUnit XML (showing up to {cap})."
+          )
+          for fqn, msg in failures[:cap]:
+              print(f"::error file=tests::{fqn}: {msg}")
+          if total > cap:
+              print(
+                  f"::warning file=pytest.xml::{total - cap} additional failure(s) "
+                  "not emitted as annotations; see raw log for details."
+              )
+          if total == 0:
+              print(
+                  "::error file=pytest.xml::pytest exited non-zero but no "
+                  "<failure>/<error> entries found in junitxml; check the raw "
+                  "run log."
+              )
+          PYEOF

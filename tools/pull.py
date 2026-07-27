@@ -264,13 +264,14 @@ class PullBuilder:
                     cwd=self._root,
                     check=False,
                 )
-            if (self._wiki / ".git").exists():
-                if not set_sparse_checkout_cone(self._wiki, [sparse_pattern]):
-                    run_git(
-                        ["sparse-checkout", "set", sparse_pattern],
-                        cwd=self._wiki,
-                        check=False,
-                    )
+            if (self._wiki / ".git").exists() and not set_sparse_checkout_cone(
+                self._wiki, [sparse_pattern]
+            ):
+                run_git(
+                    ["sparse-checkout", "set", sparse_pattern],
+                    cwd=self._wiki,
+                    check=False,
+                )
         return True, None
 
     # ── stage 3: resolve_pre_sync_conflicts ───────────────────────
@@ -391,24 +392,26 @@ class PullBuilder:
         if checkout_result.returncode != 0:
             self._sync_errors.append(f"checkout failed: {checkout_result.stderr.strip()}")
 
-        if ref_exists(WIKI_REMOTE_REF, cwd=self._wiki):
-            # Shared classifier: ff-only → fallback merge → classify. Pull does
-            # not auto-resolve; any non-clean outcome is handed to
-            # resolve_wiki_issue (a conflicting merge is left in progress for it
-            # to pick up, matching the prior behavior).
-            if merge_remote_ref(self._wiki) != MERGE_CLEAN:
-                return False, {
-                    "status": "merge_conflict",
-                    "repo": self._repo_name,
-                    "branch": self._branch,
-                    "wiki_path": str(self._wiki),
-                    "resolve_action": "resolve_wiki_issue",
-                    "message": (
-                        "Merge conflict with remote. Pull cannot "
-                        "auto-resolve. Use resolve_wiki_issue to "
-                        "diagnose and fix."
-                    ),
-                }
+        # Shared classifier: ff-only → fallback merge → classify. Pull does
+        # not auto-resolve; any non-clean outcome is handed to
+        # resolve_wiki_issue (a conflicting merge is left in progress for it
+        # to pick up, matching the prior behavior).
+        if (
+            ref_exists(WIKI_REMOTE_REF, cwd=self._wiki)
+            and merge_remote_ref(self._wiki) != MERGE_CLEAN
+        ):
+            return False, {
+                "status": "merge_conflict",
+                "repo": self._repo_name,
+                "branch": self._branch,
+                "wiki_path": str(self._wiki),
+                "resolve_action": "resolve_wiki_issue",
+                "message": (
+                    "Merge conflict with remote. Pull cannot "
+                    "auto-resolve. Use resolve_wiki_issue to "
+                    "diagnose and fix."
+                ),
+            }
 
         return True, None
 

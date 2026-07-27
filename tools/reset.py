@@ -134,19 +134,29 @@ class ResetBuilder:
     def _delete_from_remote(self) -> tuple[bool, dict | None]:
         if wiki_is_initialized(self._wiki):
             from tools.resolve import _has_merge_in_progress
+
             if _has_merge_in_progress(self._wiki):
                 run_git(["merge", "--abort"], cwd=self._wiki, check=False)
 
             run_git(
-                ["-c", "protocol.file.allow=always",
-                 "fetch", "origin", WIKI_REMOTE_BRANCH, "--depth", "1"],
-                cwd=self._wiki, check=False,
+                [
+                    "-c",
+                    "protocol.file.allow=always",
+                    "fetch",
+                    "origin",
+                    WIKI_REMOTE_BRANCH,
+                    "--depth",
+                    "1",
+                ],
+                cwd=self._wiki,
+                check=False,
             )
             run_git(["checkout", "-B", WIKI_REMOTE_BRANCH], cwd=self._wiki, check=False)
             if ref_exists(WIKI_REMOTE_REF, cwd=self._wiki):
                 run_git(
                     ["reset", "--hard", WIKI_REMOTE_REF],
-                    cwd=self._wiki, check=False,
+                    cwd=self._wiki,
+                    check=False,
                 )
 
             repo_folder = self._wiki / self._repo_name / self._branch
@@ -155,22 +165,38 @@ class ResetBuilder:
                 parent = self._wiki / self._repo_name
                 if parent.exists() and not any(parent.iterdir()):
                     parent.rmdir()
-                run_git(["add", "--sparse", "--", f"{self._repo_name}/{self._branch}/"], cwd=self._wiki, check=False)
+                run_git(
+                    ["add", "--sparse", "--", f"{self._repo_name}/{self._branch}/"],
+                    cwd=self._wiki,
+                    check=False,
+                )
                 if not (self._wiki / self._repo_name).exists():
-                    run_git(["add", "--sparse", "--", f"{self._repo_name}/"], cwd=self._wiki, check=False)
+                    run_git(
+                        ["add", "--sparse", "--", f"{self._repo_name}/"],
+                        cwd=self._wiki,
+                        check=False,
+                    )
                 commit_result = run_git(
-                    ["commit", *_no_verify_flag(), "-m",
-                     f"wiki: reset {self._repo_name}/{self._branch} (full deletion)"],
-                    cwd=self._wiki, check=False,
+                    [
+                        "commit",
+                        *_no_verify_flag(),
+                        "-m",
+                        f"wiki: reset {self._repo_name}/{self._branch} (full deletion)",
+                    ],
+                    cwd=self._wiki,
+                    check=False,
                 )
                 if commit_result.returncode == 0:
                     push_result = run_git(
                         ["push", "origin", f"HEAD:refs/heads/{WIKI_REMOTE_BRANCH}"],
-                        cwd=self._wiki, check=False,
+                        cwd=self._wiki,
+                        check=False,
                     )
                     if push_result.returncode == 0:
                         self._remote_deleted = True
-                        self._steps_done.append(f"Deleted '{self._rel_path}/' from remote wiki branch")
+                        self._steps_done.append(
+                            f"Deleted '{self._rel_path}/' from remote wiki branch"
+                        )
                     else:
                         self._steps_done.append(
                             f"Remote deletion committed but push failed: "
@@ -180,7 +206,9 @@ class ResetBuilder:
                             "Call resolve_wiki_issue() to diagnose and fix the push failure."
                         )
             else:
-                self._steps_done.append(f"'{self._rel_path}/' not found on remote — nothing to delete")
+                self._steps_done.append(
+                    f"'{self._rel_path}/' not found on remote — nothing to delete"
+                )
                 self._remote_deleted = True
         return True, None
 
@@ -229,15 +257,22 @@ class ResetBuilder:
             # actually staged.
             staged = run_git(
                 ["diff", "--cached", "--name-only", "--", "wiki", ".gitmodules"],
-                cwd=self._root, check=False,
+                cwd=self._root,
+                check=False,
             )
             paths_to_commit = [p.strip() for p in staged.stdout.splitlines() if p.strip()]
             if paths_to_commit:
                 run_git(
-                    ["commit", *_no_verify_flag(),
-                     "-m", "wiki: remove submodule (reset)",
-                     "--", *paths_to_commit],
-                    cwd=self._root, check=False,
+                    [
+                        "commit",
+                        *_no_verify_flag(),
+                        "-m",
+                        "wiki: remove submodule (reset)",
+                        "--",
+                        *paths_to_commit,
+                    ],
+                    cwd=self._root,
+                    check=False,
                 )
             self._steps_done.append("Removed wiki submodule from local repo")
         elif wiki_is_initialized(self._wiki):
@@ -257,6 +292,7 @@ class ResetBuilder:
 
     def _invalidate_cache(self) -> tuple[bool, dict | None]:
         from utils.wiki_index import WikiIndex
+
         WikiIndex.invalidate(self._repo_name, self._branch)
         return True, None
 
@@ -305,10 +341,10 @@ class ResetBuilder:
 # ── backward-compatible entry point ────────────────────────────────────
 
 
-def reset_wiki(force: bool = False, repo_path: str | None = None,
-               repo_name: str | None = None, branch: str | None = None) -> dict:
-    return (
-        ResetBuilder()
-        .for_repo_branch(repo_name, branch, repo_path)
-        .execute(force)
-    )
+def reset_wiki(
+    force: bool = False,
+    repo_path: str | None = None,
+    repo_name: str | None = None,
+    branch: str | None = None,
+) -> dict:
+    return ResetBuilder().for_repo_branch(repo_name, branch, repo_path).execute(force)

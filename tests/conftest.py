@@ -23,7 +23,9 @@ import pytest
 _CREATIONFLAGS = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 
-def _git(args: list[str], cwd: Path, **kwargs) -> subprocess.CompletedProcess[str]:
+def _git(
+    args: list[str], cwd: Path, check: bool = False, **kwargs
+) -> subprocess.CompletedProcess[str]:
     """Run a git command in the test harness (not through production code)."""
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1"}
     return subprocess.run(
@@ -34,6 +36,7 @@ def _git(args: list[str], cwd: Path, **kwargs) -> subprocess.CompletedProcess[st
         env=env,
         creationflags=_CREATIONFLAGS,
         timeout=120,
+        check=check,
         **kwargs,
     )
 
@@ -59,6 +62,7 @@ def _make_bare_wiki(path: Path) -> None:
     head_file.write_text("ref: refs/heads/wiki\n")
 
     import shutil
+
     shutil.rmtree(work, ignore_errors=True)
 
 
@@ -109,8 +113,10 @@ def _env_and_caches(bare_wiki: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Clear all module-level caches so each test is isolated.
     import config
+
     config._wiki_path_cache = None
     config._repo_root_cache.clear()
 
     from utils import git as git_mod
+
     git_mod._repo_name_cache.clear()

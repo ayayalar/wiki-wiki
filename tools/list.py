@@ -61,9 +61,17 @@ class ListBuilder:
         remote = self._remote_url
         assert remote is not None
         fetch_result = run_git(
-            ["-c", "protocol.file.allow=always",
-              "fetch", remote, "+refs/heads/wiki:refs/remotes/origin/wiki", "--depth", "1"],
-            cwd=self._wiki, check=False,
+            [
+                "-c",
+                "protocol.file.allow=always",
+                "fetch",
+                remote,
+                "+refs/heads/wiki:refs/remotes/origin/wiki",
+                "--depth",
+                "1",
+            ],
+            cwd=self._wiki,
+            check=False,
         )
         if fetch_result.returncode != 0:
             return False, {
@@ -77,7 +85,8 @@ class ListBuilder:
     def _list_repo_names(self) -> tuple[bool, dict | None]:
         ls_result = run_git(
             ["ls-tree", "--name-only", "origin/wiki"],
-            cwd=self._wiki, check=False,
+            cwd=self._wiki,
+            check=False,
         )
         if ls_result.returncode != 0:
             return False, {
@@ -85,11 +94,7 @@ class ListBuilder:
                 "message": f"git ls-tree failed: {(ls_result.stderr or '').strip()}",
             }
 
-        self._repo_names = [
-            line.strip()
-            for line in ls_result.stdout.splitlines()
-            if line.strip()
-        ]
+        self._repo_names = [line.strip() for line in ls_result.stdout.splitlines() if line.strip()]
 
         if self._pattern:
             pattern_lower = self._pattern.lower()
@@ -104,14 +109,13 @@ class ListBuilder:
         for repo_name in self._repo_names:
             branches_result = run_git(
                 ["ls-tree", "--name-only", f"origin/wiki:{repo_name}"],
-                cwd=self._wiki, check=False,
+                cwd=self._wiki,
+                check=False,
             )
             branches: list[str] = []
             if branches_result.returncode == 0:
                 branches = [
-                    line.strip()
-                    for line in branches_result.stdout.splitlines()
-                    if line.strip()
+                    line.strip() for line in branches_result.stdout.splitlines() if line.strip()
                 ]
             repos.append({"name": repo_name, "branches": branches})
 
@@ -173,8 +177,4 @@ class ListBuilder:
 
 
 def list_remote_wikis(pattern: str | None = None, repo_path: str | None = None) -> dict:
-    return (
-        ListBuilder()
-        .for_params(pattern, repo_path)
-        .execute()
-    )
+    return ListBuilder().for_params(pattern, repo_path).execute()

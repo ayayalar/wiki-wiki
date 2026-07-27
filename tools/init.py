@@ -6,13 +6,25 @@ from pathlib import Path
 from typing import Any
 
 from config import repo_root as _default_repo_root
-from utils.git import get_current_branch, get_repo_name, wiki_is_initialized
-from utils.wiki import check_params, scaffold, wiki_not_initialized_response, detect_domains_from_repo
-from utils.git import _no_verify_flag, run_git
+from utils.git import (
+    _no_verify_flag,
+    get_current_branch,
+    get_repo_name,
+    run_git,
+    wiki_is_initialized,
+)
+from utils.wiki import (
+    check_params,
+    detect_domains_from_repo,
+    scaffold,
+    wiki_not_initialized_response,
+)
 
 
 def scaffold_repo_wiki_if_empty(
-    repo_wiki_path: Path, repo_name: str, wiki_root: Path | None = None,
+    repo_wiki_path: Path,
+    repo_name: str,
+    wiki_root: Path | None = None,
     code_root: Path | None = None,
 ) -> dict | None:
     existing = list(repo_wiki_path.rglob("*.md")) if repo_wiki_path.exists() else []
@@ -81,8 +93,10 @@ class InitBuilder:
 
     def _check_existing(self) -> tuple[bool, dict | None]:
         scaffold_result = scaffold_repo_wiki_if_empty(
-            self._repo_wiki_path, self._repo_name,
-            wiki_root=self._wiki, code_root=self._code_root,
+            self._repo_wiki_path,
+            self._repo_name,
+            wiki_root=self._wiki,
+            code_root=self._code_root,
         )
         if scaffold_result is None:
             existing = list(self._repo_wiki_path.rglob("*.md"))
@@ -140,9 +154,7 @@ class InitBuilder:
 # ── backward-compatible entry point ────────────────────────────────────
 
 
-def init(repo_name: str | None = None, branch: str | None = None, repo_path: str | None = None) -> dict:
-    return (
-        InitBuilder()
-        .for_repo_branch(repo_name, branch, repo_path)
-        .execute()
-    )
+def init(
+    repo_name: str | None = None, branch: str | None = None, repo_path: str | None = None
+) -> dict:
+    return InitBuilder().for_repo_branch(repo_name, branch, repo_path).execute()

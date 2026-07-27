@@ -63,7 +63,9 @@ class QueryBuilder:
     def _search_index(self) -> tuple[bool, dict | None]:
         idx = WikiIndex.get_or_build(self._repo_wiki_path, self._repo_name, self._branch)
         self._search_result = idx.search(self._topic)
-        self._has_results = bool(self._search_result["domains"] or self._search_result["other_matches"])
+        self._has_results = bool(
+            self._search_result["domains"] or self._search_result["other_matches"]
+        )
         return True, None
 
     # ── orchestration ─────────────────────────────────────────────
@@ -138,12 +140,13 @@ class QueryBuilder:
 # ── backward-compatible entry point ────────────────────────────────────
 
 
-def query(topic: str, repo_name: str | None = None, branch: str | None = None, repo_path: str | None = None) -> dict:
-    return (
-        QueryBuilder()
-        .for_repo_branch(topic, repo_name, branch, repo_path)
-        .execute()
-    )
+def query(
+    topic: str,
+    repo_name: str | None = None,
+    branch: str | None = None,
+    repo_path: str | None = None,
+) -> dict:
+    return QueryBuilder().for_repo_branch(topic, repo_name, branch, repo_path).execute()
 
 
 # ── RemoteQueryBuilder ────────────────────────────────────────────────
@@ -210,9 +213,17 @@ class RemoteQueryBuilder:
             }
 
         fetch_result = run_git(
-            ["-c", "protocol.file.allow=always",
-             "fetch", remote_url, "+refs/heads/wiki:refs/remotes/origin/wiki", "--depth", "1"],
-            cwd=self._wiki, check=False,
+            [
+                "-c",
+                "protocol.file.allow=always",
+                "fetch",
+                remote_url,
+                "+refs/heads/wiki:refs/remotes/origin/wiki",
+                "--depth",
+                "1",
+            ],
+            cwd=self._wiki,
+            check=False,
         )
         if fetch_result.returncode != 0:
             self._fetch_error = f"git fetch failed: {(fetch_result.stderr or '').strip()}"
@@ -222,7 +233,9 @@ class RemoteQueryBuilder:
 
     def _search_remote_index(self) -> tuple[bool, dict | None]:
         WikiIndex.invalidate(self._repo_name, self._branch)
-        self._idx, self._build_error = WikiIndex.get_or_build_remote(self._wiki, self._repo_name, self._branch)
+        self._idx, self._build_error = WikiIndex.get_or_build_remote(
+            self._wiki, self._repo_name, self._branch
+        )
         self._search_result = self._idx.search(self._topic)
         return True, None
 
@@ -248,10 +261,18 @@ class RemoteQueryBuilder:
         return self.to_result()
 
     def to_result(self) -> dict:
-        if not self._search_result.get("domains") and not self._search_result.get("other_matches") and not self._search_result.get("index"):
-            diagnostic = self._build_error or self._fetch_error or (
-                f"No wiki content found for '{self._repo_name}/{self._branch}'. "
-                f"Ensure wiki content has been pushed from that repo."
+        if (
+            not self._search_result.get("domains")
+            and not self._search_result.get("other_matches")
+            and not self._search_result.get("index")
+        ):
+            diagnostic = (
+                self._build_error
+                or self._fetch_error
+                or (
+                    f"No wiki content found for '{self._repo_name}/{self._branch}'. "
+                    f"Ensure wiki content has been pushed from that repo."
+                )
             )
             response: dict[str, Any] = {
                 "topic": self._topic,
@@ -276,19 +297,23 @@ class RemoteQueryBuilder:
             for page in domain.get("pages", []):
                 doc = self._idx._docs.get(page["path"])
                 if doc and doc.content:
-                    pages.append({
-                        "path": page["path"],
-                        "domain": domain["name"],
-                        "content": doc.content,
-                    })
+                    pages.append(
+                        {
+                            "path": page["path"],
+                            "domain": domain["name"],
+                            "content": doc.content,
+                        }
+                    )
         for match in self._search_result.get("other_matches", []):
             doc = self._idx._docs.get(match["path"])
             if doc and doc.content:
-                pages.append({
-                    "path": match["path"],
-                    "domain": "",
-                    "content": doc.content,
-                })
+                pages.append(
+                    {
+                        "path": match["path"],
+                        "domain": "",
+                        "content": doc.content,
+                    }
+                )
 
         return {
             "topic": self._topic,
@@ -314,10 +339,7 @@ class RemoteQueryBuilder:
 # ── backward-compatible entry point ────────────────────────────────────
 
 
-def query_remote(topic: str, repo_name: str, branch: str = "master",
-                 repo_path: str | None = None) -> dict:
-    return (
-        RemoteQueryBuilder()
-        .for_repo_branch(topic, repo_name, branch, repo_path)
-        .execute()
-    )
+def query_remote(
+    topic: str, repo_name: str, branch: str = "master", repo_path: str | None = None
+) -> dict:
+    return RemoteQueryBuilder().for_repo_branch(topic, repo_name, branch, repo_path).execute()

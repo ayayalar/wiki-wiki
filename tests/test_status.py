@@ -9,10 +9,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_git_fake(
     *,
@@ -88,8 +88,8 @@ def _setup_wiki(tmp_path: Path, initialized: bool = True) -> Path:
 # Tests
 # ---------------------------------------------------------------------------
 
-class TestWikiStatus:
 
+class TestWikiStatus:
     def test_not_initialized(self, tmp_path: Path):
         """Missing wiki dir → status not_initialized."""
         from tools.status import status
@@ -110,9 +110,11 @@ class TestWikiStatus:
 
         _setup_wiki(tmp_path)
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake()), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake()),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["sync_state"] == "synced"
@@ -127,9 +129,11 @@ class TestWikiStatus:
 
         _setup_wiki(tmp_path)
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake(commits_ahead=2)), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake(commits_ahead=2)),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["sync_state"] == "ahead"
@@ -142,9 +146,11 @@ class TestWikiStatus:
 
         _setup_wiki(tmp_path)
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake(commits_behind=3)), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake(commits_behind=3)),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["sync_state"] == "behind"
@@ -157,9 +163,14 @@ class TestWikiStatus:
 
         _setup_wiki(tmp_path)
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake(commits_ahead=4, commits_behind=1)), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch(
+                "tools.status.run_git",
+                side_effect=_make_git_fake(commits_ahead=4, commits_behind=1),
+            ),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["sync_state"] == "diverged"
@@ -172,11 +183,14 @@ class TestWikiStatus:
 
         _setup_wiki(tmp_path)
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake(
-                 fetch_rc=1, fetch_stderr="fatal: unable to connect"
-             )), \
-             patch("tools.status.ref_exists", return_value=False):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch(
+                "tools.status.run_git",
+                side_effect=_make_git_fake(fetch_rc=1, fetch_stderr="fatal: unable to connect"),
+            ),
+            patch("tools.status.ref_exists", return_value=False),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["remote"]["fetch_ok"] is False
@@ -191,9 +205,11 @@ class TestWikiStatus:
 
         porcelain = " M myrepo/main/docs/architecture.md\n?? myrepo/main/scratch.txt\n"
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake(porcelain=porcelain)), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake(porcelain=porcelain)),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["local"]["dirty"] is True
@@ -206,9 +222,11 @@ class TestWikiStatus:
 
         _setup_wiki(tmp_path)
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake(porcelain="")), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake(porcelain="")),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["local"]["dirty"] is False
@@ -227,9 +245,11 @@ class TestWikiStatus:
             " M otherrepo/main/readme.md\n"
         )
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake(porcelain=porcelain)), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake(porcelain=porcelain)),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["local"]["dirty"] is True
@@ -245,9 +265,11 @@ class TestWikiStatus:
         wiki = _setup_wiki(tmp_path)
         (wiki / ".git" / "REBASE_HEAD").write_text("abc\n")
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake()), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake()),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["local"]["in_progress"] == "rebase"
@@ -259,9 +281,11 @@ class TestWikiStatus:
         wiki = _setup_wiki(tmp_path)
         (wiki / ".git" / "CHERRY_PICK_HEAD").write_text("def\n")
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake()), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake()),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["local"]["in_progress"] == "cherry-pick"
@@ -273,9 +297,11 @@ class TestWikiStatus:
         wiki = _setup_wiki(tmp_path)
         (wiki / ".git" / "MERGE_HEAD").write_text("ghi\n")
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake()), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake()),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["local"]["in_progress"] == "merge"
@@ -286,9 +312,11 @@ class TestWikiStatus:
 
         _setup_wiki(tmp_path)
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake()), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake()),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["local"]["in_progress"] is None
@@ -299,9 +327,11 @@ class TestWikiStatus:
 
         _setup_wiki(tmp_path)
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake()), \
-             patch("tools.status.ref_exists", return_value=False):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake()),
+            patch("tools.status.ref_exists", return_value=False),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["remote"]["sha"] is None
@@ -313,13 +343,18 @@ class TestWikiStatus:
 
         _setup_wiki(tmp_path)
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake(
-                 head_sha="aaa0001",
-                 wiki_updated="2026-06-08 14:30:00 -0700",
-                 code_head="ccc0001 Fix broken link",
-             )), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch(
+                "tools.status.run_git",
+                side_effect=_make_git_fake(
+                    head_sha="aaa0001",
+                    wiki_updated="2026-06-08 14:30:00 -0700",
+                    code_head="ccc0001 Fix broken link",
+                ),
+            ),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["local"]["head_sha"] == "aaa0001"
@@ -333,9 +368,14 @@ class TestWikiStatus:
 
         _setup_wiki(tmp_path)
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake(remote_sha="bbb0002", remote_message="Fix broken link")), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch(
+                "tools.status.run_git",
+                side_effect=_make_git_fake(remote_sha="bbb0002", remote_message="Fix broken link"),
+            ),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["remote"]["sha"] == "bbb0002"
@@ -348,9 +388,11 @@ class TestWikiStatus:
 
         _setup_wiki(tmp_path)
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake()), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake()),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="acme", branch="feature-x", repo_path=str(tmp_path))
 
         assert result["repo"] == "acme"
@@ -363,9 +405,11 @@ class TestWikiStatus:
         wiki = _setup_wiki(tmp_path)
         (wiki / ".git" / "rebase-merge").mkdir()
 
-        with patch("tools.status.wiki_is_initialized", return_value=True), \
-             patch("tools.status.run_git", side_effect=_make_git_fake()), \
-             patch("tools.status.ref_exists", return_value=True):
+        with (
+            patch("tools.status.wiki_is_initialized", return_value=True),
+            patch("tools.status.run_git", side_effect=_make_git_fake()),
+            patch("tools.status.ref_exists", return_value=True),
+        ):
             result = status(repo_name="myrepo", branch="main", repo_path=str(tmp_path))
 
         assert result["local"]["in_progress"] == "rebase"

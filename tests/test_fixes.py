@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from tests.conftest import _git
 
@@ -103,15 +103,17 @@ class TestCVEVersionCheck:
         """check_git_version returns warning dict when git is vulnerable."""
         from utils.git import check_git_version
 
-        with patch("utils.git._git_is_patched_for_cve_2025_48384", return_value=False):
-            with patch("utils.git.run_git") as mock_git:
-                mock_git.return_value = MagicMock(stdout="git version 2.45.3\n")
-                result = check_git_version()
-                assert result is not None
-                assert result["status"] == "cve_warning"
-                assert result["cve"] == "CVE-2025-48384"
-                assert "2.45.3" in result["installed_version"]
-                assert "GHSA-992w-73f5-x28c" in result["message"]
+        with (
+            patch("utils.git._git_is_patched_for_cve_2025_48384", return_value=False),
+            patch("utils.git.run_git") as mock_git,
+        ):
+            mock_git.return_value = MagicMock(stdout="git version 2.45.3\n")
+            result = check_git_version()
+            assert result is not None
+            assert result["status"] == "cve_warning"
+            assert result["cve"] == "CVE-2025-48384"
+            assert "2.45.3" in result["installed_version"]
+            assert "GHSA-992w-73f5-x28c" in result["message"]
 
 
 # ── PAT auth injection for git remotes ──────────────────────────────────
@@ -120,9 +122,7 @@ class TestCVEVersionCheck:
 class TestRemotePatAuth:
     """Test PAT env vars are honored for HTTPS remotes in run_git()."""
 
-    def test_run_git_injects_pat_header_for_https_origin(
-        self, tmp_path: Path, monkeypatch
-    ):
+    def test_run_git_injects_pat_header_for_https_origin(self, tmp_path: Path, monkeypatch):
         from utils.git import run_git
 
         repo = tmp_path / "repo"
@@ -141,6 +141,12 @@ class TestRemotePatAuth:
 
             def wait(self, timeout=None):
                 return None
+
+            def communicate(self, timeout=None):
+                return ("", "")
+
+            def poll(self):
+                return self.returncode
 
         def _fake_popen(*args, **kwargs):
             captured["args"] = args
@@ -177,6 +183,12 @@ class TestRemotePatAuth:
             def wait(self, timeout=None):
                 return None
 
+            def communicate(self, timeout=None):
+                return ("", "")
+
+            def poll(self):
+                return self.returncode
+
         def _fake_popen(*args, **kwargs):
             captured["kwargs"] = kwargs
             return DummyProc()
@@ -211,6 +223,12 @@ class TestRemotePatAuth:
 
             def wait(self, timeout=None):
                 return None
+
+            def communicate(self, timeout=None):
+                return ("", "")
+
+            def poll(self):
+                return self.returncode
 
         def _fake_popen(*args, **kwargs):
             captured["kwargs"] = kwargs
@@ -375,9 +393,7 @@ class TestLogMergeFormatting:
         assert "## [2024-01-01] Local entry" in content
         assert "## [2024-01-02] Remote entry" in content
         # Entries separated by \n\n (single blank line)
-        assert (
-            "\n\n".join(["## [2024-01-01] Local entry", "## [2024-01-02] Remote entry"]) in content
-        )
+        assert "## [2024-01-01] Local entry\n\n## [2024-01-02] Remote entry" in content
 
 
 # ── H3: Merge strategy (preserve local changes) ─────────────────────────
@@ -389,6 +405,7 @@ class TestMergeStrategy:
     def test_resolve_diverged_merge_no_x_theirs(self, code_repo: Path):
         """diverged:merge does NOT use -X theirs (which would discard local changes)."""
         import inspect
+
         from tools import resolve as resolve_mod
 
         handler = resolve_mod._ACTION_HANDLERS.get("diverged:merge")
@@ -413,6 +430,7 @@ class TestMergeStrategy:
         """pull.py does NOT auto-resolve merge conflicts (-X theirs removed).
         Conflicts are surfaced to resolve_wiki_issue instead."""
         import inspect
+
         from tools import pull as pull_mod
 
         source = inspect.getsource(pull_mod.PullBuilder._fetch_and_merge)
@@ -438,6 +456,7 @@ class TestPreSyncAutoResolve:
     def test_finish_merge_called_before_sync(self, code_repo: Path):
         """finish_merge is called before fetch/merge to complete resolved merges."""
         import inspect
+
         from tools import pull as pull_mod
 
         source = inspect.getsource(pull_mod.PullBuilder.execute)
@@ -453,6 +472,7 @@ class TestPreSyncAutoResolve:
     def test_dirty_blocks_pull(self, code_repo: Path):
         """Dirty state causes pull to block, never auto-commit or stash."""
         import inspect
+
         from tools import pull as pull_mod
 
         source = inspect.getsource(pull_mod.PullBuilder._guard_uncommitted)

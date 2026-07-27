@@ -102,14 +102,22 @@ class DeleteBuilder:
         # to the shared wiki branch then rejects ours non-fast-forward and the
         # ff-only merge can never help (HEAD already moved past the base).
         run_git(
-            ["-c", "protocol.file.allow=always",
-             "fetch", "origin", WIKI_REMOTE_BRANCH, "--deepen=10"],
-            cwd=self._wiki, check=False,
+            [
+                "-c",
+                "protocol.file.allow=always",
+                "fetch",
+                "origin",
+                WIKI_REMOTE_BRANCH,
+                "--deepen=10",
+            ],
+            cwd=self._wiki,
+            check=False,
         )
         if ref_exists(WIKI_REMOTE_REF, cwd=self._wiki):
             run_git(
                 ["merge", "--ff-only", WIKI_REMOTE_REF],
-                cwd=self._wiki, check=False,
+                cwd=self._wiki,
+                check=False,
             )
 
         # Now remove this repo/branch folder and commit the deletion on top.
@@ -118,14 +126,20 @@ class DeleteBuilder:
 
         run_git(["add", "--", self._rel_path], cwd=self._wiki, check=False)
         run_git(
-            ["commit", *_no_verify_flag(), "-m", f"wiki: delete {self._repo_name} for {self._branch}"],
+            [
+                "commit",
+                *_no_verify_flag(),
+                "-m",
+                f"wiki: delete {self._repo_name} for {self._branch}",
+            ],
             cwd=self._wiki,
             check=False,
         )
 
         push_result = run_git(
             ["push", "origin", f"HEAD:refs/heads/{WIKI_REMOTE_BRANCH}"],
-            cwd=self._wiki, check=False,
+            cwd=self._wiki,
+            check=False,
         )
         self._push_ok = push_result.returncode == 0
         if not self._push_ok:
@@ -134,6 +148,7 @@ class DeleteBuilder:
         # Drop any cached search index for this repo/branch so query_wiki
         # doesn't keep serving the just-deleted pages from memory.
         from utils.wiki_index import WikiIndex
+
         WikiIndex.invalidate(self._repo_name, self._branch)
         return True, None
 
@@ -172,9 +187,7 @@ class DeleteBuilder:
 # ── backward-compatible entry point ────────────────────────────────────
 
 
-def delete_wiki(branch: str | None = None, repo_name: str | None = None, repo_path: str | None = None) -> dict:
-    return (
-        DeleteBuilder()
-        .for_repo_branch(repo_name, branch, repo_path)
-        .execute()
-    )
+def delete_wiki(
+    branch: str | None = None, repo_name: str | None = None, repo_path: str | None = None
+) -> dict:
+    return DeleteBuilder().for_repo_branch(repo_name, branch, repo_path).execute()

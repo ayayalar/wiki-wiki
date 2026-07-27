@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_git_dir(wiki: Path) -> Path | None:
     git_entry = wiki / ".git"
     if not git_entry.exists():
@@ -30,7 +31,7 @@ def _get_git_dir(wiki: Path) -> Path | None:
     try:
         text = git_entry.read_text(encoding="utf-8").strip()
         if text.startswith("gitdir:"):
-            rel = text[len("gitdir:"):].strip()
+            rel = text[len("gitdir:") :].strip()
             candidate = (wiki / rel).resolve()
             if candidate.is_dir():
                 return candidate
@@ -71,7 +72,7 @@ def _dirty_files(wiki: Path, pattern: str) -> list[str]:
                 path_part = path_part.split(" -> ", 1)[1]
             path_part = path_part.strip()
             if path_part.startswith(prefix):
-                files.append(path_part[len(prefix):])
+                files.append(path_part[len(prefix) :])
     return files
 
 
@@ -164,9 +165,17 @@ class StatusBuilder:
     def _fetch_remote(self) -> tuple[bool, dict | None]:
         log.info("wiki_status: fetching remote for %s/%s", self._repo_name, self._branch)
         fetch = run_git(
-            ["-c", "protocol.file.allow=always",
-             "fetch", "origin", WIKI_REMOTE_BRANCH, "--depth", "100"],
-            cwd=self._wiki, check=False,
+            [
+                "-c",
+                "protocol.file.allow=always",
+                "fetch",
+                "origin",
+                WIKI_REMOTE_BRANCH,
+                "--depth",
+                "100",
+            ],
+            cwd=self._wiki,
+            check=False,
         )
         self._fetch_ok = fetch.returncode == 0
         if not self._fetch_ok:
@@ -189,7 +198,9 @@ class StatusBuilder:
         code_head_message: str | None = None
         code_result = run_git(
             ["log", "-1", "--format=%h %s"],
-            cwd=code_root, check=False, timeout=30,
+            cwd=code_root,
+            check=False,
+            timeout=30,
         )
         if code_result.returncode == 0 and code_result.stdout.strip():
             parts = code_result.stdout.strip().split(" ", 1)
@@ -213,7 +224,9 @@ class StatusBuilder:
         remote_ref = WIKI_REMOTE_REF
         remote_ref_exists_flag = ref_exists(remote_ref, cwd=self._wiki)
         path = f"{self._repo_name}/{self._branch}/"
-        remote_sha = _rev_parse_short(remote_ref, self._wiki, path) if remote_ref_exists_flag else None
+        remote_sha = (
+            _rev_parse_short(remote_ref, self._wiki, path) if remote_ref_exists_flag else None
+        )
 
         # Get remote commit message (same pattern as Code HEAD)
         remote_sha_message: str | None = None
@@ -378,8 +391,4 @@ def status(
     branch: str,
     repo_path: str,
 ) -> dict:
-    return (
-        StatusBuilder()
-        .for_repo_branch(repo_name, branch, repo_path)
-        .execute()
-    )
+    return StatusBuilder().for_repo_branch(repo_name, branch, repo_path).execute()
