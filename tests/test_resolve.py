@@ -12,8 +12,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
-
 # ── Branch state detection ──────────────────────────────────────────────
 
 
@@ -31,6 +29,7 @@ class TestBranchStateDetection:
         ``local_ahead``  = commits in HEAD not in origin (origin/wiki..HEAD)
         ``remote_ahead`` = commits in origin not in HEAD (HEAD..origin/wiki)
         """
+
         def fake_git(args, **kwargs):
             fake = MagicMock()
             fake.returncode = 0
@@ -47,55 +46,64 @@ class TestBranchStateDetection:
             else:
                 fake.stdout = ""
             return fake
+
         return fake_git
 
     def test_behind_remote_detected(self):
         """Local is 0 ahead, remote is 3 ahead → behind."""
-        from tools.resolve import _is_behind_remote, _is_ahead_of_remote, _is_diverged
+        from tools.resolve import _is_ahead_of_remote, _is_behind_remote, _is_diverged
 
         fake = self._make_count_fake(local_ahead=0, remote_ahead=3)
-        with patch("tools.resolve.run_git", side_effect=fake):
-            with patch("tools.resolve.ref_exists", return_value=True):
-                assert _is_behind_remote(Path("/fake"), "myrepo", "main") is True
-                assert _is_ahead_of_remote(Path("/fake"), "myrepo", "main") is False
-                assert _is_diverged(Path("/fake"), "myrepo", "main") is False
+        with (
+            patch("tools.resolve.run_git", side_effect=fake),
+            patch("tools.resolve.ref_exists", return_value=True),
+        ):
+            assert _is_behind_remote(Path("/fake"), "myrepo", "main") is True
+            assert _is_ahead_of_remote(Path("/fake"), "myrepo", "main") is False
+            assert _is_diverged(Path("/fake"), "myrepo", "main") is False
 
     def test_ahead_of_remote_detected(self):
         """Local is 2 ahead, remote is 0 ahead → ahead."""
-        from tools.resolve import _is_behind_remote, _is_ahead_of_remote, _is_diverged
+        from tools.resolve import _is_ahead_of_remote, _is_behind_remote, _is_diverged
 
         fake = self._make_count_fake(local_ahead=2, remote_ahead=0)
-        with patch("tools.resolve.run_git", side_effect=fake):
-            with patch("tools.resolve.ref_exists", return_value=True):
-                assert _is_behind_remote(Path("/fake"), "myrepo", "main") is False
-                assert _is_ahead_of_remote(Path("/fake"), "myrepo", "main") is True
-                assert _is_diverged(Path("/fake"), "myrepo", "main") is False
+        with (
+            patch("tools.resolve.run_git", side_effect=fake),
+            patch("tools.resolve.ref_exists", return_value=True),
+        ):
+            assert _is_behind_remote(Path("/fake"), "myrepo", "main") is False
+            assert _is_ahead_of_remote(Path("/fake"), "myrepo", "main") is True
+            assert _is_diverged(Path("/fake"), "myrepo", "main") is False
 
     def test_diverged_detected(self):
         """Local is 4 ahead AND remote is 1 ahead → diverged."""
-        from tools.resolve import _is_behind_remote, _is_ahead_of_remote, _is_diverged
+        from tools.resolve import _is_ahead_of_remote, _is_behind_remote, _is_diverged
 
         fake = self._make_count_fake(local_ahead=4, remote_ahead=1)
-        with patch("tools.resolve.run_git", side_effect=fake):
-            with patch("tools.resolve.ref_exists", return_value=True):
-                assert _is_behind_remote(Path("/fake"), "myrepo", "main") is False
-                assert _is_ahead_of_remote(Path("/fake"), "myrepo", "main") is False
-                assert _is_diverged(Path("/fake"), "myrepo", "main") is True
+        with (
+            patch("tools.resolve.run_git", side_effect=fake),
+            patch("tools.resolve.ref_exists", return_value=True),
+        ):
+            assert _is_behind_remote(Path("/fake"), "myrepo", "main") is False
+            assert _is_ahead_of_remote(Path("/fake"), "myrepo", "main") is False
+            assert _is_diverged(Path("/fake"), "myrepo", "main") is True
 
     def test_equal_not_detected_as_issue(self):
         """Local is 0 ahead, remote is 0 ahead → healthy (no issue)."""
-        from tools.resolve import _is_behind_remote, _is_ahead_of_remote, _is_diverged
+        from tools.resolve import _is_ahead_of_remote, _is_behind_remote, _is_diverged
 
         fake = self._make_count_fake(local_ahead=0, remote_ahead=0)
-        with patch("tools.resolve.run_git", side_effect=fake):
-            with patch("tools.resolve.ref_exists", return_value=True):
-                assert _is_behind_remote(Path("/fake"), "myrepo", "main") is False
-                assert _is_ahead_of_remote(Path("/fake"), "myrepo", "main") is False
-                assert _is_diverged(Path("/fake"), "myrepo", "main") is False
+        with (
+            patch("tools.resolve.run_git", side_effect=fake),
+            patch("tools.resolve.ref_exists", return_value=True),
+        ):
+            assert _is_behind_remote(Path("/fake"), "myrepo", "main") is False
+            assert _is_ahead_of_remote(Path("/fake"), "myrepo", "main") is False
+            assert _is_diverged(Path("/fake"), "myrepo", "main") is False
 
     def test_missing_remote_ref_returns_false(self):
         """If origin/wiki ref doesn't exist, all checks return False."""
-        from tools.resolve import _is_behind_remote, _is_ahead_of_remote, _is_diverged
+        from tools.resolve import _is_ahead_of_remote, _is_behind_remote, _is_diverged
 
         with patch("tools.resolve.ref_exists", return_value=False):
             assert _is_behind_remote(Path("/fake"), "myrepo", "main") is False
@@ -104,7 +112,7 @@ class TestBranchStateDetection:
 
     def test_rev_list_failure_returns_false(self):
         """If rev-list returns non-zero, functions treat state as unknown (False)."""
-        from tools.resolve import _is_behind_remote, _is_ahead_of_remote, _is_diverged
+        from tools.resolve import _is_ahead_of_remote, _is_behind_remote, _is_diverged
 
         def failing_git(args, **kwargs):
             fake = MagicMock()
@@ -113,11 +121,13 @@ class TestBranchStateDetection:
             fake.stderr = "fatal: not a git repo"
             return fake
 
-        with patch("tools.resolve.run_git", side_effect=failing_git):
-            with patch("tools.resolve.ref_exists", return_value=True):
-                assert _is_behind_remote(Path("/fake"), "myrepo", "main") is False
-                assert _is_ahead_of_remote(Path("/fake"), "myrepo", "main") is False
-                assert _is_diverged(Path("/fake"), "myrepo", "main") is False
+        with (
+            patch("tools.resolve.run_git", side_effect=failing_git),
+            patch("tools.resolve.ref_exists", return_value=True),
+        ):
+            assert _is_behind_remote(Path("/fake"), "myrepo", "main") is False
+            assert _is_ahead_of_remote(Path("/fake"), "myrepo", "main") is False
+            assert _is_diverged(Path("/fake"), "myrepo", "main") is False
 
 
 # ── In-progress operation detection ─────────────────────────────────────
@@ -175,8 +185,8 @@ class TestInProgressOperations:
     def test_no_operation_in_progress(self, tmp_path: Path):
         """No state files → no operations in progress."""
         from tools.resolve import (
-            _has_rebase_in_progress,
             _has_cherry_pick_in_progress,
+            _has_rebase_in_progress,
             _has_revert_in_progress,
         )
 
@@ -200,6 +210,7 @@ class TestDiagnosisPriority:
         wiki = code_repo / "wiki"
         # Pull to initialize
         from tools.pull import pull
+
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
         # Simulate merge in progress + dirty state
@@ -225,6 +236,7 @@ class TestDiagnosisPriority:
 
         wiki = code_repo / "wiki"
         from tools.pull import pull
+
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
         git_dir = _get_git_dir(wiki)
@@ -255,6 +267,7 @@ class TestResolutions:
 
         code_repo / "wiki"
         from tools.pull import pull
+
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
         call_log: list[list[str]] = []
@@ -284,6 +297,7 @@ class TestResolutions:
 
         code_repo / "wiki"
         from tools.pull import pull
+
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
         call_log: list[list[str]] = []
@@ -311,6 +325,7 @@ class TestResolutions:
 
         code_repo / "wiki"
         from tools.pull import pull
+
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
         call_log: list[list[str]] = []
@@ -323,12 +338,14 @@ class TestResolutions:
             fake.stderr = ""
             return fake
 
-        with patch("tools.resolve.run_git", side_effect=track_git):
-            with patch("tools.resolve.ref_exists", return_value=True):
-                result = resolve(
-                    action="ahead_of_remote:push",
-                    repo_path=str(code_repo),
-                )
+        with (
+            patch("tools.resolve.run_git", side_effect=track_git),
+            patch("tools.resolve.ref_exists", return_value=True),
+        ):
+            result = resolve(
+                action="ahead_of_remote:push",
+                repo_path=str(code_repo),
+            )
 
         # Should have fetch, merge, and push calls
         assert any("fetch" in c for c in call_log)
@@ -342,6 +359,7 @@ class TestResolutions:
 
         code_repo / "wiki"
         from tools.pull import pull
+
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
         call_log: list[list[str]] = []
@@ -369,6 +387,7 @@ class TestResolutions:
 
         code_repo / "wiki"
         from tools.pull import pull
+
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
         call_log: list[list[str]] = []
@@ -396,6 +415,7 @@ class TestResolutions:
 
         code_repo / "wiki"
         from tools.pull import pull
+
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
         monkeypatch.setenv("WIKI_MCP_REMOTE_URL", "https://example.com/test/wiki.git")
@@ -425,6 +445,7 @@ class TestResolutions:
 
         code_repo / "wiki"
         from tools.pull import pull
+
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
         monkeypatch.delenv("WIKI_MCP_REMOTE_URL", raising=False)
@@ -518,8 +539,10 @@ class TestNonInteractiveEditor:
 
     def _make_tracking_git(self, target_subcmd: str, captured: list):
         """Return a run_git side-effect that records env_extra when target_subcmd is seen."""
+
         def track(args, **kwargs):
             from unittest.mock import MagicMock
+
             if target_subcmd in args:
                 captured.append(kwargs.get("env_extra"))
             fake = MagicMock()
@@ -534,8 +557,9 @@ class TestNonInteractiveEditor:
         """GIT_EDITOR=true is passed via env_extra during 'git rebase --continue'."""
         import os
         from unittest.mock import patch
-        from tools.resolve import resolve
+
         from tools.pull import pull
+        from tools.resolve import resolve
 
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
@@ -567,8 +591,9 @@ class TestNonInteractiveEditor:
         """GIT_EDITOR=true is passed via env_extra during 'git cherry-pick --continue'."""
         import os
         from unittest.mock import patch
-        from tools.resolve import resolve
+
         from tools.pull import pull
+        from tools.resolve import resolve
 
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
@@ -597,8 +622,9 @@ class TestNonInteractiveEditor:
         """GIT_EDITOR=true is passed via env_extra during 'git revert --continue'."""
         import os
         from unittest.mock import patch
-        from tools.resolve import resolve
+
         from tools.pull import pull
+        from tools.resolve import resolve
 
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
@@ -631,9 +657,10 @@ class TestNonInteractiveEditor:
         modified os.environ globally, which caused corruption under concurrency.
         """
         import os
-        from unittest.mock import patch, MagicMock
-        from tools.resolve import resolve
+        from unittest.mock import MagicMock, patch
+
         from tools.pull import pull
+        from tools.resolve import resolve
 
         pull(repo_name="myrepo", branch="develop", repo_path=str(code_repo))
 
@@ -641,6 +668,7 @@ class TestNonInteractiveEditor:
         os.environ.pop("GIT_EDITOR", None)
 
         captured_env_extras: list[dict | None] = []
+
         def track_env_extra(args, **kwargs):
             captured_env_extras.append(kwargs.get("env_extra"))
             fake = MagicMock()

@@ -35,8 +35,16 @@ from pathlib import Path
 from typing import Any
 
 from config import repo_root as _default_repo_root
-from utils.git import get_current_branch, get_merge_base, get_origin_default_branch, get_repo_name, ref_exists, run_git, wiki_is_initialized
-from utils.wiki import get_log_tail, wiki_not_initialized_response, check_params
+from utils.git import (
+    get_current_branch,
+    get_merge_base,
+    get_origin_default_branch,
+    get_repo_name,
+    ref_exists,
+    run_git,
+    wiki_is_initialized,
+)
+from utils.wiki import check_params, get_log_tail, wiki_not_initialized_response
 
 # Exclude wiki submodule and .gitmodules from all diffs
 _EXCLUDE = ["--", ".", ":(exclude)wiki", ":(exclude).gitmodules"]
@@ -93,6 +101,7 @@ _CREATIONFLAGS = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 # P4 fix: _wiki_is_empty checks for actual domain entries, not placeholder text
 # ---------------------------------------------------------------------------
 
+
 def _wiki_is_empty(index_path: Path) -> bool:
     """True if the wiki index doesn't exist or has no agent-written domain entries.
 
@@ -133,6 +142,7 @@ def _wiki_is_empty(index_path: Path) -> bool:
 # P1 fix: shared file-list helper (replaces duplicate ls-tree calls)
 # ---------------------------------------------------------------------------
 
+
 def _get_all_files(code_root: Path) -> list[str]:
     """Return a deduplicated list of all tracked files in the repo.
 
@@ -141,10 +151,12 @@ def _get_all_files(code_root: Path) -> list[str]:
     """
     result = run_git(
         ["ls-tree", "-r", "HEAD", "--name-only"],
-        cwd=code_root, check=False,
+        cwd=code_root,
+        check=False,
     )
     return [
-        f for f in result.stdout.strip().splitlines()
+        f
+        for f in result.stdout.strip().splitlines()
         if f and not f.startswith("wiki/") and f != ".gitmodules"
     ]
 
@@ -152,6 +164,7 @@ def _get_all_files(code_root: Path) -> list[str]:
 # ---------------------------------------------------------------------------
 # _directory_summary - now accepts a pre-fetched file list
 # ---------------------------------------------------------------------------
+
 
 def _directory_summary(all_files: list[str]) -> str:
     """Return a compact directory structure with file counts per folder."""
@@ -185,6 +198,7 @@ def _directory_summary(all_files: list[str]) -> str:
 # Key-file matching - now accepts a pre-fetched file list
 # ---------------------------------------------------------------------------
 
+
 def _match_key_files(all_files: list[str]) -> list[str]:
     """Return paths of files matching key architectural patterns.
 
@@ -198,9 +212,11 @@ def _match_key_files(all_files: list[str]) -> list[str]:
             matched.append(f)
     return sorted(matched)
 
+
 # ---------------------------------------------------------------------------
 # P2 fix: batch-read key files via git cat-file --batch (single subprocess)
 # ---------------------------------------------------------------------------
+
 
 def _read_files_batch(code_root: Path, filepaths: list[str]) -> dict[str, str]:
     """Read multiple files from HEAD in a single git subprocess.
@@ -216,15 +232,14 @@ def _read_files_batch(code_root: Path, filepaths: list[str]) -> dict[str, str]:
     # --- Windows: use temp files to avoid pipe-handle inheritance hangs ---
     if sys.platform == "win32":
         import shutil
+
         tmpdir = tempfile.mkdtemp(prefix="wiki_ingest_")
         in_path = os.path.join(tmpdir, "in")
         out_path = os.path.join(tmpdir, "out")
         try:
             with open(in_path, "w", encoding="utf-8") as f:
-                for ref in refs:
-                    f.write(ref + "\n")
-            with open(in_path, "r", encoding="utf-8") as in_f, \
-                 open(out_path, "wb") as out_f:
+                f.writelines(ref + "\n" for ref in refs)
+            with open(in_path, "r", encoding="utf-8") as in_f, open(out_path, "wb") as out_f:
                 proc = subprocess.Popen(
                     ["git", "cat-file", "--batch"],
                     cwd=str(code_root),
@@ -252,6 +267,7 @@ def _read_files_batch(code_root: Path, filepaths: list[str]) -> dict[str, str]:
             capture_output=True,
             timeout=30,
             creationflags=_CREATIONFLAGS,
+            check=False,
         )
         if proc.returncode != 0:
             return {}
@@ -271,7 +287,7 @@ def _read_files_batch(code_root: Path, filepaths: list[str]) -> dict[str, str]:
             if len(parts) < 3:
                 break
             size = int(parts[2])
-            raw = data[offset:offset + size]
+            raw = data[offset : offset + size]
             offset += size + 1  # skip trailing newline
             # M2 fix: skip binary files
             if b"\x00" in raw:
@@ -287,9 +303,11 @@ def _read_files_batch(code_root: Path, filepaths: list[str]) -> dict[str, str]:
 
     return files
 
+
 # ---------------------------------------------------------------------------
 # _collect_key_files - orchestrator (no subprocesses of its own)
 # ---------------------------------------------------------------------------
+
 
 def _collect_key_files(code_root: Path, all_files: list[str]) -> str:
     """Read key architectural files and return their contents inline.
@@ -322,6 +340,7 @@ def _collect_key_files(code_root: Path, all_files: list[str]) -> str:
 # _truncate_index: keep only the top of index.md (domain list)
 # ---------------------------------------------------------------------------
 
+
 def _truncate_index(text: str) -> str:
     """Return at most _MAX_INDEX_CHARS of the wiki index, truncating
     gracefully at a line boundary."""
@@ -339,11 +358,13 @@ def _truncate_index(text: str) -> str:
 # _cap_response: enforce overall response size limit
 # ---------------------------------------------------------------------------
 
+
 def _cap_response(resp: dict) -> dict:
     """If the response body (excluding 'instruction') exceeds
     _MAX_RESPONSE_CHARS, strip 'key_files' and 'index' to shrink it."""
     # Estimate serialized size of non-instruction fields
     import json
+
     body = {k: v for k, v in resp.items() if k != "instruction"}
     size = len(json.dumps(body, ensure_ascii=False))
 
@@ -352,7 +373,9 @@ def _cap_response(resp: dict) -> dict:
 
     # Strip key_files first (largest contributor in full ingest)
     if resp.get("key_files"):
-        resp["key_files"] = f"(key_files suppressed: response size {size} exceeds {_MAX_RESPONSE_CHARS} cap)"
+        resp["key_files"] = (
+            f"(key_files suppressed: response size {size} exceeds {_MAX_RESPONSE_CHARS} cap)"
+        )
         resp.setdefault("_truncated", []).append("key_files")
 
     # Re-check; if still over, strip index too
@@ -372,6 +395,7 @@ def _cap_response(resp: dict) -> dict:
 # ---------------------------------------------------------------------------
 # _format_log_table: parse log.md entries into a markdown table
 # ---------------------------------------------------------------------------
+
 
 def _format_log_table(log_text: str) -> str:
     """Parse ``log.md`` entries and return a markdown table."""
@@ -520,6 +544,7 @@ def _compute_diff(code_root: Path, scope_pathspec: list[str] | None = None) -> t
     result = run_git(["diff", "HEAD"] + pathspec, cwd=code_root, check=False)
     return result.stdout, "HEAD"
 
+
 # ---------------------------------------------------------------------------
 # IngestBuilder
 # ---------------------------------------------------------------------------
@@ -640,10 +665,12 @@ class IngestBuilder:
 
     def _pre_ingest_sync(self) -> tuple[bool, dict | None]:
         """Pull from remote if behind or diverged. May retry once."""
-        from tools.resolve import _is_behind_remote, _is_diverged
         from tools.pull import pull as _pull_impl
+        from tools.resolve import _is_behind_remote, _is_diverged
 
-        if not _is_behind_remote(self._wiki, self._repo_name, self._branch) and not _is_diverged(self._wiki, self._repo_name, self._branch):
+        if not _is_behind_remote(self._wiki, self._repo_name, self._branch) and not _is_diverged(
+            self._wiki, self._repo_name, self._branch
+        ):
             return True, None
 
         pull_result = _pull_impl(
@@ -660,11 +687,17 @@ class IngestBuilder:
             }
 
         # Recheck: after pull, verify we're actually synced.
-        if _is_behind_remote(self._wiki, self._repo_name, self._branch) or _is_diverged(self._wiki, self._repo_name, self._branch):
+        if _is_behind_remote(self._wiki, self._repo_name, self._branch) or _is_diverged(
+            self._wiki, self._repo_name, self._branch
+        ):
             pull_result2 = _pull_impl(
                 repo_name=self._repo_name, branch=self._branch, repo_path=str(self._code_root)
             )
-            if pull_result2.get("status") in ("merge_conflict", "stash_conflict", "merge_in_progress"):
+            if pull_result2.get("status") in (
+                "merge_conflict",
+                "stash_conflict",
+                "merge_in_progress",
+            ):
                 return False, {
                     "status": "wiki_sync_conflict",
                     "resolve_action": pull_result2.get("resolve_action"),
@@ -673,7 +706,9 @@ class IngestBuilder:
                         "Call resolve_wiki_issue() to resolve, then retry ingest_wiki()."
                     ),
                 }
-            if _is_behind_remote(self._wiki, self._repo_name, self._branch) or _is_diverged(self._wiki, self._repo_name, self._branch):
+            if _is_behind_remote(self._wiki, self._repo_name, self._branch) or _is_diverged(
+                self._wiki, self._repo_name, self._branch
+            ):
                 self._wiki_race_warning = True
 
         return True, None
@@ -683,6 +718,7 @@ class IngestBuilder:
     def _invalidate_cache(self) -> tuple[bool, dict | None]:
         """Clear the in-memory search index for this repo+branch."""
         from utils.wiki_index import WikiIndex
+
         WikiIndex.invalidate(self._repo_name, self._branch)
         return True, None
 
@@ -732,13 +768,17 @@ class IngestBuilder:
 
         if len(diff) > _MAX_DIFF_CHARS:
             truncated = diff[:_MAX_DIFF_CHARS]
-            diff = truncated + f"\n\n... (diff truncated at {_MAX_DIFF_CHARS} chars, {len(diff)} total)"
+            diff = (
+                truncated
+                + f"\n\n... (diff truncated at {_MAX_DIFF_CHARS} chars, {len(diff)} total)"
+            )
 
         base_wiki_path = self._wiki / self._repo_name / base_branch_name
         base_index_path = base_wiki_path / "index.md"
         base_index = _truncate_index(
             base_index_path.read_text(encoding="utf-8", errors="replace")
-            if base_index_path.exists() else ""
+            if base_index_path.exists()
+            else ""
         )
 
         scoped_prefix = ""
@@ -860,12 +900,13 @@ class IngestBuilder:
                 "wiki_path": str(self._repo_wiki_path),
                 "index": _truncate_index(
                     self._index_path.read_text(encoding="utf-8", errors="replace")
-                    if self._index_path.exists() else ""
+                    if self._index_path.exists()
+                    else ""
                 ),
-                    "log_tail": get_log_tail(self._log_path, 5),
-                    "log_summary": _format_log_table(get_log_tail(self._log_path, 5)),
-                    "instruction": (
-                        f"No code changes detected since last ingest (diff_spec: {diff_spec}). "
+                "log_tail": get_log_tail(self._log_path, 5),
+                "log_summary": _format_log_table(get_log_tail(self._log_path, 5)),
+                "instruction": (
+                    f"No code changes detected since last ingest (diff_spec: {diff_spec}). "
                     f"The wiki lives at {self._repo_wiki_path}. "
                     "If you need to update existing wiki content (e.g. fix stale documentation), "
                     "use fetch_wiki() to load pages, edit them directly, then call push_wiki()."
@@ -874,7 +915,10 @@ class IngestBuilder:
 
         if len(diff) > _MAX_DIFF_CHARS:
             truncated = diff[:_MAX_DIFF_CHARS]
-            diff = truncated + f"\n\n... (diff truncated at {_MAX_DIFF_CHARS} chars, {len(diff)} total)"
+            diff = (
+                truncated
+                + f"\n\n... (diff truncated at {_MAX_DIFF_CHARS} chars, {len(diff)} total)"
+            )
 
         scoped_prefix = ""
         if self._scope_active:
@@ -890,13 +934,14 @@ class IngestBuilder:
             "wiki_path": str(self._repo_wiki_path),
             "index": _truncate_index(
                 self._index_path.read_text(encoding="utf-8", errors="replace")
-                if self._index_path.exists() else ""
+                if self._index_path.exists()
+                else ""
             ),
-                "log_tail": get_log_tail(self._log_path, 5),
-                "log_summary": _format_log_table(get_log_tail(self._log_path, 5)),
-                "instruction": (
-                    f"{scoped_prefix}"
-                    f"INCREMENTAL WIKI UPDATE: Code has changed and you must update wiki pages. "
+            "log_tail": get_log_tail(self._log_path, 5),
+            "log_summary": _format_log_table(get_log_tail(self._log_path, 5)),
+            "instruction": (
+                f"{scoped_prefix}"
+                f"INCREMENTAL WIKI UPDATE: Code has changed and you must update wiki pages. "
                 f"The wiki lives at {self._repo_wiki_path}. "
                 f"REQUIRED STEPS: "
                 f"1. Read the diff to identify which domains in {self._repo_name} are affected. "
@@ -962,4 +1007,3 @@ def ingest(
         .for_repo_branch(repo_name, branch, repo_path, paths=paths, topic=topic)
         .execute()
     )
-

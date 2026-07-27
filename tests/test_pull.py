@@ -12,7 +12,6 @@ from unittest.mock import MagicMock, patch
 from tools.pull import PullBuilder
 from tools.resolve import MERGE_CLEAN, MERGE_CONFLICT
 
-
 # ── Helpers ────────────────────────────────────────────────────────────
 
 
@@ -127,7 +126,9 @@ class TestBootstrap:
         assert ok is True
         assert result is None
         assert b._bootstrapped is True
-        mock_bs.assert_called_once_with(tmp_path, "https://example.com/wiki.git", "myrepo", "develop")
+        mock_bs.assert_called_once_with(
+            tmp_path, "https://example.com/wiki.git", "myrepo", "develop"
+        )
 
 
 # ── Stage 2b: _configure_sparse_checkout ───────────────────────────────
@@ -172,7 +173,11 @@ class TestConfigureSparseCheckout:
 
         def _side_effect(args, cwd=None, check=False):
             cp = _mock_subprocess()
-            if args[:4] == ["-c", "protocol.file.allow=always", "-c", "submodule.wiki.update=checkout"] and "--remote" in args:
+            if (
+                args[:4]
+                == ["-c", "protocol.file.allow=always", "-c", "submodule.wiki.update=checkout"]
+                and "--remote" in args
+            ):
                 (tmp_path / "wiki").mkdir(parents=True, exist_ok=True)
                 (tmp_path / "wiki" / ".git").write_text("gitdir: ../.git/modules/wiki\n")
             return cp
@@ -511,12 +516,14 @@ class TestExecute:
         """execute() returns immediately when a stage returns (False, error)."""
         b = _builder(root=tmp_path)
         # Set up so _bootstrap fails
-        with patch.object(b, "_validate", return_value=(True, None)):
-            with patch.object(
+        with (
+            patch.object(b, "_validate", return_value=(True, None)),
+            patch.object(
                 b, "_bootstrap", return_value=(False, {"status": "needs_setup", "error": "test"})
-            ):
-                result = b.execute()
-                assert result["status"] == "needs_setup"
+            ),
+        ):
+            result = b.execute()
+            assert result["status"] == "needs_setup"
 
     @patch("tools.pull.merge_remote_ref", return_value=MERGE_CLEAN)
     @patch("tools.pull.run_git")

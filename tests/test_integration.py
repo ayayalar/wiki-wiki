@@ -19,7 +19,7 @@ BRANCH = "develop"
 
 
 def _params(code_repo: Path) -> dict:
-    return dict(repo_path=str(code_repo), repo_name=REPO, branch=BRANCH)
+    return {"repo_path": str(code_repo), "repo_name": REPO, "branch": BRANCH}
 
 
 def _seed_wiki_remote_with_feature_and_master(bare_wiki: Path, tmp_path: Path) -> None:
@@ -179,8 +179,8 @@ class TestBootstrapNoCommit:
 class TestInit:
     def test_already_initialized(self, code_repo: Path):
         """init after pull returns error with existing_files."""
-        from tools.pull import pull
         from tools.init import init
+        from tools.pull import pull
 
         pull(**_params(code_repo))
         result = init(**_params(code_repo))
@@ -341,7 +341,7 @@ class TestQueryRemote:
         all_paths = [p["path"] for p in result.get("pages", [])]
         assert "auth-guide.md" in all_paths
         # Content is included inline
-        auth_page = [p for p in result["pages"] if p["path"] == "auth-guide.md"][0]
+        auth_page = next(p for p in result["pages"] if p["path"] == "auth-guide.md")
         assert "OAuth2" in auth_page["content"]
 
     def test_remote_not_found(self, code_repo: Path):
@@ -377,8 +377,8 @@ class TestQueryRemote:
 class TestFetch:
     def test_reads_page(self, code_repo: Path):
         """fetch returns the content of a markdown page."""
-        from tools.pull import pull
         from tools.fetch import fetch
+        from tools.pull import pull
 
         pull(**_params(code_repo))
         result = fetch("index.md", **_params(code_repo))
@@ -388,8 +388,8 @@ class TestFetch:
 
     def test_path_traversal_rejected(self, code_repo: Path):
         """fetch with path traversal returns error."""
-        from tools.pull import pull
         from tools.fetch import fetch
+        from tools.pull import pull
 
         pull(**_params(code_repo))
         result = fetch("../../../etc/passwd", **_params(code_repo))
@@ -397,8 +397,8 @@ class TestFetch:
 
     def test_nonexistent_page(self, code_repo: Path):
         """fetch a missing page returns error."""
-        from tools.pull import pull
         from tools.fetch import fetch
+        from tools.pull import pull
 
         pull(**_params(code_repo))
         result = fetch("does-not-exist.md", **_params(code_repo))
@@ -407,8 +407,8 @@ class TestFetch:
 
     def test_non_markdown_rejected(self, code_repo: Path):
         """fetch rejects non-markdown files."""
-        from tools.pull import pull
         from tools.fetch import fetch
+        from tools.pull import pull
 
         pull(**_params(code_repo))
         result = fetch("something.txt", **_params(code_repo))
@@ -545,8 +545,8 @@ class TestIngest:
 
     def test_returns_diff(self, code_repo: Path):
         """ingest after a code change returns the diff."""
-        from tools.pull import pull
         from tools.ingest import ingest
+        from tools.pull import pull
 
         pull(**_params(code_repo))
 
@@ -570,8 +570,8 @@ class TestIngest:
 
     def test_no_changes(self, code_repo: Path):
         """ingest on empty wiki returns directory structure + key files for full ingest."""
-        from tools.pull import pull
         from tools.ingest import ingest
+        from tools.pull import pull
 
         pull(**_params(code_repo))
 
@@ -595,8 +595,8 @@ class TestIngest:
 
     def test_no_changes_after_populated(self, code_repo: Path):
         """ingest on a populated wiki with no code changes returns 'no changes'."""
-        from tools.pull import pull
         from tools.ingest import ingest
+        from tools.pull import pull
 
         pull(**_params(code_repo))
 
@@ -612,8 +612,8 @@ class TestIngest:
         self, tmp_path: Path, bare_wiki: Path, monkeypatch: pytest.MonkeyPatch
     ):
         """When wiki is empty but origin base exists, ingest returns targeted_ingest with diff."""
-        from tools.pull import pull
         from tools.ingest import ingest
+        from tools.pull import pull
 
         # Create a bare "origin" repo with a default branch
         origin_bare = tmp_path / "origin.git"
@@ -673,8 +673,8 @@ class TestIngest:
     ):
         """User branch with slashes (e.g. users/ayayalar/divp-http-metrics) vs origin/master with 4 file changes.
         Wiki pages should only be created for the 4 changed files, not the full codebase."""
-        from tools.pull import pull
         from tools.ingest import ingest
+        from tools.pull import pull
 
         # Create a bare "origin" repo with master as default
         origin_bare = tmp_path / "origin.git"
@@ -761,8 +761,8 @@ class TestIngest:
         self, tmp_path: Path, bare_wiki: Path, monkeypatch: pytest.MonkeyPatch
     ):
         """After git checkout to master, the previous branch wiki is unloaded and replaced with master wiki."""
-        from tools.pull import pull
         from tools.ingest import ingest
+        from tools.pull import pull
 
         # Create a bare "origin" repo with master as default
         origin_bare = tmp_path / "origin.git"
@@ -835,8 +835,8 @@ class TestIngest:
 class TestScopedIngest:
     def test_no_scope_backcompat(self, code_repo: Path):
         """No scope args preserves ingest behavior and does not error."""
-        from tools.pull import pull
         from tools.ingest import ingest
+        from tools.pull import pull
 
         pull(**_params(code_repo))
         result = ingest(**_params(code_repo))
@@ -845,8 +845,8 @@ class TestScopedIngest:
 
     def test_both_scope_params_rejected(self, code_repo: Path):
         """Passing both paths and topic is rejected as invalid_params."""
-        from tools.pull import pull
         from tools.ingest import ingest
+        from tools.pull import pull
 
         pull(**_params(code_repo))
         result = ingest(**_params(code_repo), paths=["src"], topic="app")
@@ -856,8 +856,8 @@ class TestScopedIngest:
 
     def test_scoped_paths_full_create(self, code_repo: Path):
         """Scoped paths on empty wiki builds a scoped full_create response."""
-        from tools.pull import pull
         from tools.ingest import ingest
+        from tools.pull import pull
 
         pull(**_params(code_repo))
 
@@ -879,8 +879,8 @@ class TestScopedIngest:
 
     def test_scoped_topic_no_match(self, code_repo: Path):
         """Topic scope with no matches returns no_files_matched_scope."""
-        from tools.pull import pull
         from tools.ingest import ingest
+        from tools.pull import pull
 
         pull(**_params(code_repo))
         result = ingest(**_params(code_repo), topic="zzz-nonexistent")
@@ -956,7 +956,9 @@ class TestBranchSwitchSync:
         wiki_root = code_repo / "wiki"
         feature_index = wiki_root / "myrepo" / "feature" / "index.md"
         marker = "\nDIRTY EDIT\n"
-        feature_index.write_text(feature_index.read_text(encoding="utf-8") + marker, encoding="utf-8")
+        feature_index.write_text(
+            feature_index.read_text(encoding="utf-8") + marker, encoding="utf-8"
+        )
 
         _git(["checkout", "master"], cwd=code_repo, check=True)
         server._resolve_context(str(code_repo))
@@ -993,8 +995,8 @@ class TestBranchSwitchSync:
 class TestLint:
     def test_returns_indexes_and_tree(self, code_repo: Path):
         """lint returns domain indexes, wiki file paths, and repo file tree."""
-        from tools.pull import pull
         from tools.lint import lint
+        from tools.pull import pull
 
         pull(**_params(code_repo))
         result = lint(**_params(code_repo))
@@ -1024,9 +1026,9 @@ class TestLint:
 class TestDelete:
     def test_removes_branch_folder(self, code_repo: Path):
         """delete removes the branch folder, commits, and pushes."""
+        from tools.delete import delete_wiki
         from tools.pull import pull
         from tools.push import push
-        from tools.delete import delete_wiki
 
         pull(**_params(code_repo))
         push(**_params(code_repo), confirm=True)  # push scaffold so remote has content
@@ -1040,8 +1042,8 @@ class TestDelete:
 
     def test_refuses_main(self, code_repo: Path):
         """delete refuses to delete main/master branches."""
-        from tools.pull import pull
         from tools.delete import delete_wiki
+        from tools.pull import pull
 
         pull(**_params(code_repo))
         result = delete_wiki(branch="main", repo_name=REPO, repo_path=str(code_repo))
@@ -1049,8 +1051,8 @@ class TestDelete:
 
     def test_nonexistent_folder(self, code_repo: Path):
         """delete a non-existent branch folder returns not_found."""
-        from tools.pull import pull
         from tools.delete import delete_wiki
+        from tools.pull import pull
 
         pull(**_params(code_repo))
         result = delete_wiki(branch="nonexistent", repo_name=REPO, repo_path=str(code_repo))
@@ -1268,7 +1270,7 @@ class TestResolve:
 
         # Use master branch to match the code repo's actual branch.
         # resolve() auto-detects the branch from the code repo.
-        params = dict(repo_path=str(code_repo), repo_name=REPO, branch="master")
+        params = {"repo_path": str(code_repo), "repo_name": REPO, "branch": "master"}
         pull(**params)
         push(**params, confirm=True)  # push scaffold so clean
 

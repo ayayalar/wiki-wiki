@@ -22,13 +22,14 @@ _CREATIONFLAGS = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 @dataclass
 class _Document:
     """Metadata for one indexed markdown file."""
-    path: str                # relative to repo_wiki_path, posix
-    title: str               # first heading or filename
-    domain: str              # parent domain name, or ""
-    domain_path: str         # domain index path, or ""
-    domain_summary: str      # domain summary from top index
-    summary: str             # page summary from domain index
-    content: str = ""        # raw markdown (populated for remote indexes)
+
+    path: str  # relative to repo_wiki_path, posix
+    title: str  # first heading or filename
+    domain: str  # parent domain name, or ""
+    domain_path: str  # domain index path, or ""
+    domain_summary: str  # domain summary from top index
+    summary: str  # page summary from domain index
+    content: str = ""  # raw markdown (populated for remote indexes)
     heading_terms: set[str] = field(default_factory=set)
     body_terms: set[str] = field(default_factory=set)
     path_terms: set[str] = field(default_factory=set)
@@ -54,11 +55,13 @@ def _parse_index(text: str) -> list[dict]:
     )
     entries = []
     for m in pattern.finditer(text):
-        entries.append({
-            "name": m.group(1).strip(),
-            "path": m.group(2).strip(),
-            "summary": (m.group(3) or "").strip(),
-        })
+        entries.append(
+            {
+                "name": m.group(1).strip(),
+                "path": m.group(2).strip(),
+                "summary": (m.group(3) or "").strip(),
+            }
+        )
     return entries
 
 
@@ -72,7 +75,7 @@ class WikiIndex:
     # _lock guards all cache mutation — FastMCP dispatches tool calls on
     # concurrent threads, and OrderedDict move_to_end/popitem/insert are not
     # thread-safe against each other.
-    _cache: ClassVar[OrderedDict[tuple, "WikiIndex"]] = OrderedDict()
+    _cache: ClassVar[OrderedDict[tuple, WikiIndex]] = OrderedDict()
     _max_cache_size: ClassVar[int] = 32
     _lock: ClassVar[threading.Lock] = threading.Lock()
 
@@ -199,8 +202,9 @@ class WikiIndex:
                 continue
         self._index_files(files)
 
-    def build_from_git(self, wiki_dir: Path, repo_name: str, branch: str,
-                       ref: str = "HEAD") -> tuple[bool, str | None]:
+    def build_from_git(
+        self, wiki_dir: Path, repo_name: str, branch: str, ref: str = "HEAD"
+    ) -> tuple[bool, str | None]:
         """Build the index from git objects (no checkout needed).
 
         Uses git ls-tree to list files and git cat-file --batch to read
@@ -222,9 +226,13 @@ class WikiIndex:
                 ["git", "ls-tree", "-r", "--name-only", f"{ref}:{prefix}"],
                 cwd=str(wiki_dir),
                 stdin=subprocess.DEVNULL,
-                capture_output=True, text=True, encoding="utf-8",
-                errors="replace", timeout=30,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
                 creationflags=_CREATIONFLAGS,
+                check=False,
             )
         except subprocess.TimeoutExpired:
             self._index_files({})
@@ -239,7 +247,10 @@ class WikiIndex:
             # Provide actionable diagnostics based on common failure modes
             if "fatal: not a git repository" in (result.stderr or ""):
                 return False, f"wiki_dir {wiki_dir} is not a git repository. Run pull_wiki first."
-            if "not found" in (result.stderr or "").lower() or "does not exist" in (result.stderr or "").lower():
+            if (
+                "not found" in (result.stderr or "").lower()
+                or "does not exist" in (result.stderr or "").lower()
+            ):
                 return False, (
                     f"Path '{prefix}' not found at ref '{ref}'. "
                     f"This means the wiki remote has no content for repo '{repo_name}' branch '{branch}'. "
@@ -249,14 +260,18 @@ class WikiIndex:
                 return False, f"git ls-tree failed for {ref}:{prefix}: {stderr}"
             return False, f"git ls-tree failed for {ref}:{prefix} (rc={result.returncode})"
 
-        md_paths = [p.strip() for p in result.stdout.strip().split("\n")
-                     if p.strip().endswith(".md")]
+        md_paths = [
+            p.strip() for p in result.stdout.strip().split("\n") if p.strip().endswith(".md")
+        ]
 
         if not md_paths:
             # ls-tree succeeded but returned no .md files — could be empty
             # wiki folder or a folder with only non-markdown files.
-            non_md = [p.strip() for p in result.stdout.strip().split("\n")
-                       if p.strip() and not p.strip().endswith(".md")]
+            non_md = [
+                p.strip()
+                for p in result.stdout.strip().split("\n")
+                if p.strip() and not p.strip().endswith(".md")
+            ]
             self._index_files({})
             if non_md:
                 return False, (
@@ -275,11 +290,9 @@ class WikiIndex:
         try:
             # Write refs to input file
             with open(in_path, "w", encoding="utf-8") as f:
-                for p in md_paths:
-                    f.write(f"{ref}:{prefix}/{p}\n")
+                f.writelines(f"{ref}:{prefix}/{p}\n" for p in md_paths)
 
-            with open(in_path, "r", encoding="utf-8") as in_f, \
-                 open(out_path, "wb") as out_f:
+            with open(in_path, "r", encoding="utf-8") as in_f, open(out_path, "wb") as out_f:
                 proc = subprocess.Popen(
                     ["git", "cat-file", "--batch"],
                     cwd=str(wiki_dir),
@@ -301,6 +314,7 @@ class WikiIndex:
                 data = f.read()
         finally:
             import shutil
+
             shutil.rmtree(tmpdir, ignore_errors=True)
 
         files: dict[str, str] = {}
@@ -313,7 +327,7 @@ class WikiIndex:
                 if "missing" in header:
                     continue
                 size = int(header.split()[2])
-                content = data[offset:offset + size].decode("utf-8", errors="replace")
+                content = data[offset : offset + size].decode("utf-8", errors="replace")
                 offset += size + 1  # skip trailing newline
                 files[rel_path] = content
             except (ValueError, IndexError):
@@ -373,11 +387,13 @@ class WikiIndex:
                 continue
             doc = self._docs[path]
             if doc.domain and path in indexed_paths:
-                domain_pages[doc.domain].append({
-                    "path": path,
-                    "summary": doc.summary,
-                    "score": score,
-                })
+                domain_pages[doc.domain].append(
+                    {
+                        "path": path,
+                        "summary": doc.summary,
+                        "score": score,
+                    }
+                )
             elif path != "index.md" and not path.endswith("/index.md"):
                 other_matches.append({"path": path, "score": score})
 
@@ -387,17 +403,18 @@ class WikiIndex:
             pages = domain_pages.get(dname, [])
             # Score the domain itself
             domain_score = sum(
-                1 for t in terms
-                if t in _tokenize(f"{dinfo['name']} {dinfo['summary']}")
+                1 for t in terms if t in _tokenize(f"{dinfo['name']} {dinfo['summary']}")
             )
             if domain_score > 0 or pages:
-                domains_result.append({
-                    "name": dinfo["name"],
-                    "path": dinfo["path"],
-                    "summary": dinfo["summary"],
-                    "relevance": domain_score,
-                    "pages": sorted(pages, key=lambda p: -p["score"])[:5],
-                })
+                domains_result.append(
+                    {
+                        "name": dinfo["name"],
+                        "path": dinfo["path"],
+                        "summary": dinfo["summary"],
+                        "relevance": domain_score,
+                        "pages": sorted(pages, key=lambda p: -p["score"])[:5],
+                    }
+                )
 
         domains_result.sort(
             key=lambda d: d["relevance"] + sum(p["score"] for p in d["pages"]),
@@ -413,7 +430,7 @@ class WikiIndex:
     # ── cache management ───────────────────────────────────────────────
 
     @classmethod
-    def _put(cls, key: tuple, idx: "WikiIndex") -> None:
+    def _put(cls, key: tuple, idx: WikiIndex) -> None:
         """Insert into LRU cache, evicting oldest if over capacity.
 
         Caller must hold ``cls._lock``.
@@ -423,7 +440,7 @@ class WikiIndex:
             cls._cache.popitem(last=False)
 
     @classmethod
-    def get_or_build(cls, repo_wiki_path: Path, repo_name: str, branch: str) -> "WikiIndex":
+    def get_or_build(cls, repo_wiki_path: Path, repo_name: str, branch: str) -> WikiIndex:
         """Return cached local index or build from filesystem (LRU eviction)."""
         key = ("local", str(repo_wiki_path), repo_name, branch)
         with cls._lock:
@@ -445,7 +462,9 @@ class WikiIndex:
         return idx
 
     @classmethod
-    def get_or_build_remote(cls, wiki_dir: Path, repo_name: str, branch: str) -> tuple["WikiIndex", str | None]:
+    def get_or_build_remote(
+        cls, wiki_dir: Path, repo_name: str, branch: str
+    ) -> tuple[WikiIndex, str | None]:
         """Return cached remote index or build from git objects (LRU eviction).
 
         Returns (index, error_message).  On failure, returns an empty index

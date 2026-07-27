@@ -38,9 +38,9 @@ def _sync_before_push(wiki: Path, repo_name: str) -> str | None:
             uncommitted changes outside this repo's folder); nothing to abort
     """
     fetch = run_git(
-        ["-c", "protocol.file.allow=always",
-         "fetch", "origin", WIKI_REMOTE_BRANCH, "--deepen=10"],
-        cwd=wiki, check=False,
+        ["-c", "protocol.file.allow=always", "fetch", "origin", WIKI_REMOTE_BRANCH, "--deepen=10"],
+        cwd=wiki,
+        check=False,
     )
     if fetch.returncode != 0:
         return None  # nothing to merge (remote branch may not exist yet)
@@ -52,7 +52,8 @@ def _sync_before_push(wiki: Path, repo_name: str) -> str | None:
     # Uses rev-list which works correctly with shallow clones.
     ahead = run_git(
         ["rev-list", "--count", f"{WIKI_REMOTE_REF}..HEAD"],
-        cwd=wiki, check=False,
+        cwd=wiki,
+        check=False,
     )
     if ahead.returncode == 0:
         count = ahead.stdout.strip()
@@ -61,7 +62,8 @@ def _sync_before_push(wiki: Path, repo_name: str) -> str | None:
             # If remote is equal or behind, no merge needed.
             behind = run_git(
                 ["rev-list", "--count", f"HEAD..{WIKI_REMOTE_REF}"],
-                cwd=wiki, check=False,
+                cwd=wiki,
+                check=False,
             )
             behind_count = 0
             if behind.returncode == 0:
@@ -103,10 +105,7 @@ def _classify_push_error(stderr: str) -> str:
             "Push rejected: remote may be unreachable or URL is incorrect. "
             "Call resolve_wiki_issue() to diagnose."
         )
-    return (
-        f"Push failed: {stderr}. "
-        "Call resolve_wiki_issue() to diagnose and resolve."
-    )
+    return f"Push failed: {stderr}. Call resolve_wiki_issue() to diagnose and resolve."
 
 
 # ── PushBuilder ────────────────────────────────────────────────────────
@@ -165,18 +164,17 @@ class PushBuilder:
 
     def _check_merge_in_progress(self) -> tuple[bool, dict | None]:
         """Finish any in-progress merge; return error if still unresolved."""
-        if not finish_merge(self._wiki):
-            if _has_merge_in_progress(self._wiki):
-                return False, {
-                    "status": "merge_in_progress",
-                    "resolve_action": "merge_conflict:keep_local",
-                    "repo": self._repo_name,
-                    "branch": self._branch,
-                    "message": (
-                        "A merge is in progress with unresolved conflicts. "
-                        "Call resolve_wiki_issue() to see resolution options."
-                    ),
-                }
+        if not finish_merge(self._wiki) and _has_merge_in_progress(self._wiki):
+            return False, {
+                "status": "merge_in_progress",
+                "resolve_action": "merge_conflict:keep_local",
+                "repo": self._repo_name,
+                "branch": self._branch,
+                "message": (
+                    "A merge is in progress with unresolved conflicts. "
+                    "Call resolve_wiki_issue() to see resolution options."
+                ),
+            }
         return True, None
 
     # ── stage 3: detect and stash ─────────────────────────────────
@@ -191,7 +189,8 @@ class PushBuilder:
         """
         status_result = run_git(
             ["status", "--porcelain", "--", self._rel_path],
-            cwd=self._wiki, check=False,
+            cwd=self._wiki,
+            check=False,
         )
         self._has_changes = bool(status_result.stdout.strip())
 
@@ -200,9 +199,9 @@ class PushBuilder:
         # phantom stash whose later `pop` would fail or hit an unrelated entry.
         if self._has_changes:
             stash_result = run_git(
-                ["stash", "push", "-u", "-m", "wiki: auto-stash before push",
-                 "--", self._rel_path],
-                cwd=self._wiki, check=False,
+                ["stash", "push", "-u", "-m", "wiki: auto-stash before push", "--", self._rel_path],
+                cwd=self._wiki,
+                check=False,
             )
             # `git stash push` exits 0 and prints "No local changes to save"
             # when it creates no entry. Only treat ourselves as stashed when
@@ -212,8 +211,7 @@ class PushBuilder:
             # copy of a user's edits and must be preserved.
             combined = f"{stash_result.stdout}\n{stash_result.stderr}"
             self._stashed = (
-                stash_result.returncode == 0
-                and "No local changes to save" not in combined
+                stash_result.returncode == 0 and "No local changes to save" not in combined
             )
         return True, None
 
@@ -229,14 +227,22 @@ class PushBuilder:
             return True, None
 
         run_git(
-            ["-c", "protocol.file.allow=always",
-             "fetch", "origin", WIKI_REMOTE_BRANCH, "--deepen=10"],
-            cwd=self._wiki, check=False,
+            [
+                "-c",
+                "protocol.file.allow=always",
+                "fetch",
+                "origin",
+                WIKI_REMOTE_BRANCH,
+                "--deepen=10",
+            ],
+            cwd=self._wiki,
+            check=False,
         )
         if ref_exists(WIKI_REMOTE_REF, cwd=self._wiki):
             ahead = run_git(
                 ["rev-list", "--count", f"{WIKI_REMOTE_REF}..HEAD"],
-                cwd=self._wiki, check=False,
+                cwd=self._wiki,
+                check=False,
             )
             if ahead.returncode == 0:
                 count = ahead.stdout.strip()
@@ -268,7 +274,8 @@ class PushBuilder:
                         }
                     push_result = run_git(
                         ["push", "origin", f"HEAD:refs/heads/{WIKI_REMOTE_BRANCH}"],
-                        cwd=self._wiki, check=False,
+                        cwd=self._wiki,
+                        check=False,
                     )
                     WikiIndex.invalidate(self._repo_name, self._branch)
                     if push_result.returncode == 0:
@@ -306,7 +313,8 @@ class PushBuilder:
         """
         status_result = run_git(
             ["status", "--porcelain", "--", self._rel_path],
-            cwd=self._wiki, check=False,
+            cwd=self._wiki,
+            check=False,
         )
         changed = status_result.stdout.strip()
         if not changed:
@@ -404,7 +412,8 @@ class PushBuilder:
             }
         commit_result = run_git(
             ["commit", *_no_verify_flag(), "-m", self._commit_msg],
-            cwd=self._wiki, check=False,
+            cwd=self._wiki,
+            check=False,
         )
         if commit_result.returncode != 0:
             # "nothing to commit" is benign: the changes are already in HEAD
@@ -427,7 +436,8 @@ class PushBuilder:
                 }
         push_result = run_git(
             ["push", "origin", f"HEAD:refs/heads/{WIKI_REMOTE_BRANCH}"],
-            cwd=self._wiki, check=False,
+            cwd=self._wiki,
+            check=False,
         )
         self._push_ok = push_result.returncode == 0
         if not self._push_ok:
@@ -506,8 +516,4 @@ def push(
     repo_path: str | None = None,
     confirm: bool = False,
 ) -> dict:
-    return (
-        PushBuilder()
-        .for_repo_branch(repo_name, branch, repo_path, message)
-        .execute(confirm)
-    )
+    return PushBuilder().for_repo_branch(repo_name, branch, repo_path, message).execute(confirm)

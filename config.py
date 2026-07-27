@@ -46,8 +46,7 @@ def find_repo_root(start: Path | None = None) -> Path:
         return submodule_match
 
     raise RepoRootNotFound(
-        f"Could not find a code repo root (looking for .gitmodules or .git) "
-        f"starting from {current}"
+        f"Could not find a code repo root (looking for .gitmodules or .git) starting from {current}"
     )
 
 

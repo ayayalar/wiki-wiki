@@ -7,7 +7,6 @@ import math
 import threading
 from typing import Any
 
-
 _EXCLUDED_TOOLS = {"wiki_usage"}
 _USAGE_LOCK = threading.Lock()
 _SESSION_INPUT_TOKENS = 0
@@ -25,7 +24,7 @@ def _estimate_tokens(payload: Any) -> int:
         text = str(payload)
     if not text:
         return 0
-    return int(math.ceil(len(text) / 4.0))
+    return math.ceil(len(text) / 4.0)
 
 
 def record_tool_input(tool_name: str, payload: Any) -> int:

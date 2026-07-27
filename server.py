@@ -18,25 +18,26 @@ from __future__ import annotations
 import re
 import sys
 import threading
-
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from config import find_repo_root, RepoRootNotFound
+from config import RepoRootNotFound, find_repo_root
 from tools.delete import delete_wiki as delete_wiki_impl
 from tools.fetch import fetch as fetch_impl
 from tools.ingest import ingest as ingest_impl
 from tools.init import init as init_impl
-from tools.list import list_remote_wikis as list_remote_wikis_impl
 from tools.lint import lint as lint_impl
+from tools.list import list_remote_wikis as list_remote_wikis_impl
 from tools.pull import pull as pull_impl
 from tools.push import push as push_impl
-from tools.query import query as query_impl, query_remote as query_remote_impl
+from tools.query import query as query_impl
+from tools.query import query_remote as query_remote_impl
 from tools.reset import reset_wiki as reset_wiki_impl
 from tools.resolve import resolve as resolve_impl
 from tools.status import status as status_impl
-from tools.usage import record_tool_input, record_tool_output, usage as usage_impl
+from tools.usage import record_tool_input, record_tool_output
+from tools.usage import usage as usage_impl
 from utils.git import derive_branch, derive_repo_name, set_sparse_checkout_cone
 from utils.wiki import validate_wiki_params
 
@@ -86,10 +87,15 @@ def _resolve_context(
     try:
         repo_path = str(find_repo_root(Path(cwd)))
     except RepoRootNotFound:
-        return cwd, repo_name or "", branch or "", {
-            "status": "invalid_params",
-            "error": f"No git repository found at or above: {cwd}",
-        }
+        return (
+            cwd,
+            repo_name or "",
+            branch or "",
+            {
+                "status": "invalid_params",
+                "error": f"No git repository found at or above: {cwd}",
+            },
+        )
     if not repo_name:
         repo_name = derive_repo_name(repo_path)
     if not branch:
@@ -106,6 +112,7 @@ def _resolve_context(
         changed = _last_sparse_pattern.get(wiki_key) != new_pattern
         if changed and wiki.is_dir() and (wiki / ".git").exists():
             from utils.git import reapply_sparse_checkout
+
             # Update sparse-checkout to the new branch folder. Only record the
             # switch as applied if the sparse write succeeded, so a transient
             # failure (config locked, etc.) is retried on the next call instead
@@ -121,6 +128,7 @@ def _resolve_context(
                 reapply_sparse_checkout(wiki)
                 # Invalidate in-memory search index so next query rebuilds
                 from utils.wiki_index import WikiIndex
+
                 WikiIndex.invalidate(repo_name, branch)
         elif changed:
             # Wiki not bootstrapped yet — record the pattern so we don't probe
@@ -136,6 +144,7 @@ def _resolve_context(
             already = repo_path in _submodule_update_configured
         if not already:
             from utils.git import run_git
+
             run_git(["config", "submodule.wiki.update", "none"], cwd=repo_path, check=False)
             with _sparse_lock:
                 _submodule_update_configured.add(repo_path)
@@ -151,7 +160,6 @@ def _run_with_usage(tool_name: str, input_payload: dict, fn) -> dict:
     return result
 
 
-
 @mcp.tool()
 def list_remote_wiki(cwd: str, pattern: str | None = None) -> dict:
     """List remote wiki repositories.
@@ -162,6 +170,7 @@ def list_remote_wiki(cwd: str, pattern: str | None = None) -> dict:
     cwd: any absolute path inside any code repo that has the wiki submodule.
     pattern: optional filter to match against repo names.
     """
+
     def _impl() -> dict:
         repo_path, _, _, err = _resolve_context(cwd)
         if err:
@@ -180,8 +189,11 @@ def pull_wiki(cwd: str, repo_name: str | None = None, branch: str | None = None)
 
     Auto-bootstraps the wiki submodule on first use via WIKI_MCP_REMOTE_URL.
     """
+
     def _impl() -> dict:
-        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd, repo_name, branch)
+        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(
+            cwd, repo_name, branch
+        )
         if err:
             return err
         return pull_impl(repo_name=resolved_repo_name, branch=resolved_branch, repo_path=repo_path)
@@ -200,8 +212,11 @@ def init_wiki(cwd: str, repo_name: str | None = None, branch: str | None = None)
     cwd: any absolute path inside the developer's code repo.
     Returns file tree + detected domains.
     """
+
     def _impl() -> dict:
-        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd, repo_name, branch)
+        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(
+            cwd, repo_name, branch
+        )
         if err:
             return err
         return init_impl(repo_name=resolved_repo_name, branch=resolved_branch, repo_path=repo_path)
@@ -214,7 +229,9 @@ def init_wiki(cwd: str, repo_name: str | None = None, branch: str | None = None)
 
 
 @mcp.tool()
-def query_wiki(topic: str, cwd: str, repo_name: str | None = None, branch: str | None = None) -> dict:
+def query_wiki(
+    topic: str, cwd: str, repo_name: str | None = None, branch: str | None = None
+) -> dict:
     """Search the CURRENT repo's wiki by keyword. Use this when the topic relates to the repo you're already working in.
 
     For searching a DIFFERENT repo's wiki, use query_remote_wiki instead.
@@ -222,11 +239,16 @@ def query_wiki(topic: str, cwd: str, repo_name: str | None = None, branch: str |
     Returns index + ranked page paths.
     cwd: any absolute path inside the developer's code repo.
     """
+
     def _impl() -> dict:
-        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd, repo_name, branch)
+        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(
+            cwd, repo_name, branch
+        )
         if err:
             return err
-        return query_impl(topic, repo_name=resolved_repo_name, branch=resolved_branch, repo_path=repo_path)
+        return query_impl(
+            topic, repo_name=resolved_repo_name, branch=resolved_branch, repo_path=repo_path
+        )
 
     return _run_with_usage(
         "query_wiki",
@@ -246,11 +268,14 @@ def query_remote_wiki(topic: str, cwd: str, repo_name: str, branch: str = "maste
     repo_name: the TARGET repo whose wiki you want to search (required, not your current repo).
     branch: the branch to search in (default: "master").
     """
+
     def _impl() -> dict:
         caller_repo_path, _, _, err = _resolve_context(cwd)
         if err:
             return err
-        return query_remote_impl(topic, repo_name=repo_name, branch=branch, repo_path=caller_repo_path)
+        return query_remote_impl(
+            topic, repo_name=repo_name, branch=branch, repo_path=caller_repo_path
+        )
 
     return _run_with_usage(
         "query_remote_wiki",
@@ -260,16 +285,23 @@ def query_remote_wiki(topic: str, cwd: str, repo_name: str, branch: str = "maste
 
 
 @mcp.tool()
-def fetch_wiki(path: str, cwd: str, repo_name: str | None = None, branch: str | None = None) -> dict:
+def fetch_wiki(
+    path: str, cwd: str, repo_name: str | None = None, branch: str | None = None
+) -> dict:
     """Load a specific wiki page (path relative to this repo's wiki folder).
 
     cwd: any absolute path inside the developer's code repo.
     """
+
     def _impl() -> dict:
-        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd, repo_name, branch)
+        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(
+            cwd, repo_name, branch
+        )
         if err:
             return err
-        return fetch_impl(path, repo_name=resolved_repo_name, branch=resolved_branch, repo_path=repo_path)
+        return fetch_impl(
+            path, repo_name=resolved_repo_name, branch=resolved_branch, repo_path=repo_path
+        )
 
     return _run_with_usage(
         "fetch_wiki",
@@ -297,8 +329,11 @@ def ingest_wiki(
     paths and topic are mutually exclusive; both are optional. Omit both for
     full-repo ingest behavior.
     """
+
     def _impl() -> dict:
-        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd, repo_name, branch)
+        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(
+            cwd, repo_name, branch
+        )
         if err:
             return err
         return ingest_impl(
@@ -328,8 +363,11 @@ def lint_wiki(cwd: str, repo_name: str | None = None, branch: str | None = None)
 
     cwd: any absolute path inside the developer's code repo.
     """
+
     def _impl() -> dict:
-        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd, repo_name, branch)
+        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(
+            cwd, repo_name, branch
+        )
         if err:
             return err
         return lint_impl(repo_name=resolved_repo_name, branch=resolved_branch, repo_path=repo_path)
@@ -342,13 +380,22 @@ def lint_wiki(cwd: str, repo_name: str | None = None, branch: str | None = None)
 
 
 @mcp.tool()
-def push_wiki(cwd: str, repo_name: str | None = None, branch: str | None = None, message: str | None = None, confirm: bool = False) -> dict:
+def push_wiki(
+    cwd: str,
+    repo_name: str | None = None,
+    branch: str | None = None,
+    message: str | None = None,
+    confirm: bool = False,
+) -> dict:
     """Commit and push wiki changes to the remote wiki branch.
 
     cwd: any absolute path inside the developer's code repo.
     """
+
     def _impl() -> dict:
-        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd, repo_name, branch)
+        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(
+            cwd, repo_name, branch
+        )
         if err:
             return err
         return push_impl(
@@ -378,11 +425,16 @@ def delete_wiki(cwd: str, repo_name: str | None = None, branch: str | None = Non
 
     cwd: any absolute path inside the developer's code repo.
     """
+
     def _impl() -> dict:
-        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd, repo_name, branch)
+        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(
+            cwd, repo_name, branch
+        )
         if err:
             return err
-        return delete_wiki_impl(branch=resolved_branch, repo_name=resolved_repo_name, repo_path=repo_path)
+        return delete_wiki_impl(
+            branch=resolved_branch, repo_name=resolved_repo_name, repo_path=repo_path
+        )
 
     return _run_with_usage(
         "delete_wiki",
@@ -392,7 +444,9 @@ def delete_wiki(cwd: str, repo_name: str | None = None, branch: str | None = Non
 
 
 @mcp.tool()
-def reset_wiki(cwd: str, repo_name: str | None = None, branch: str | None = None, force: bool = False) -> dict:
+def reset_wiki(
+    cwd: str, repo_name: str | None = None, branch: str | None = None, force: bool = False
+) -> dict:
     """Full clean-slate reset: deletes wiki content from both local AND remote.
 
     Removes this repo/branch's wiki pages from the remote wiki branch,
@@ -402,8 +456,11 @@ def reset_wiki(cwd: str, repo_name: str | None = None, branch: str | None = None
     cwd: any absolute path inside the developer's code repo.
     Dry-run by default (force=False). Call again with force=True to execute.
     """
+
     def _impl() -> dict:
-        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd, repo_name, branch)
+        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(
+            cwd, repo_name, branch
+        )
         if err:
             return err
         return reset_wiki_impl(
@@ -431,11 +488,16 @@ def wiki_status(cwd: str, repo_name: str | None = None, branch: str | None = Non
     repo_name: optional override (auto-derived from cwd if omitted).
     branch: optional override (auto-derived from cwd if omitted).
     """
+
     def _impl() -> dict:
-        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd, repo_name, branch)
+        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(
+            cwd, repo_name, branch
+        )
         if err:
             return err
-        return status_impl(repo_name=resolved_repo_name, branch=resolved_branch, repo_path=repo_path)
+        return status_impl(
+            repo_name=resolved_repo_name, branch=resolved_branch, repo_path=repo_path
+        )
 
     return _run_with_usage(
         "wiki_status",
@@ -457,6 +519,7 @@ def resolve_wiki_issue(cwd: str, action: str | None = None) -> dict:
     cwd: any absolute path inside the developer's code repo.
     action: qualified resolution ID from diagnosis (e.g. "diverged:merge"). Omit to diagnose.
     """
+
     def _impl() -> dict:
         repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd)
         if err:
@@ -479,7 +542,9 @@ def wiki_usage(cwd: str, repo_name: str | None = None, branch: str | None = None
     """
 
     def _impl() -> dict:
-        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(cwd, repo_name, branch)
+        repo_path, resolved_repo_name, resolved_branch, err = _resolve_context(
+            cwd, repo_name, branch
+        )
         if err:
             return err
         return usage_impl(repo_name=resolved_repo_name, branch=resolved_branch, repo_path=repo_path)

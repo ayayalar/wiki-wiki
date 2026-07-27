@@ -100,9 +100,9 @@ class TestExecute:
         result = builder.execute()
 
         # Verify ls-tree calls use origin/wiki
-        ls_tree_calls = [
-            c[0][0] for c in mock_git.call_args_list if "ls-tree" in c[0][0]
-        ]
+        ls_tree_calls = [c[0][0] for c in mock_git.call_args_list if "ls-tree" in c[0][0]]
         for cmd in ls_tree_calls:
-            assert any("origin/wiki" in arg for arg in cmd), f"ls-tree must reference origin/wiki: {cmd}"
+            assert any("origin/wiki" in arg for arg in cmd), (
+                f"ls-tree must reference origin/wiki: {cmd}"
+            )
         assert result["count"] == 1

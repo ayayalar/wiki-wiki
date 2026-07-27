@@ -55,7 +55,10 @@ class FetchBuilder:
     def _validate_path(self) -> tuple[bool, dict | None]:
         p = Path(self._path)
         if ".." in p.parts or p.is_absolute():
-            return False, {"status": "invalid_params", "error": "path contains '..' or is absolute — not allowed."}
+            return False, {
+                "status": "invalid_params",
+                "error": "path contains '..' or is absolute — not allowed.",
+            }
 
         requested = (self._repo_wiki_path / p).resolve()
         try:
@@ -67,7 +70,9 @@ class FetchBuilder:
             return False, {"error": "Only markdown files can be fetched"}
 
         if not requested.is_file():
-            return False, {"error": f"Page not found: {self._repo_name}/{self._branch}/{self._path}"}
+            return False, {
+                "error": f"Page not found: {self._repo_name}/{self._branch}/{self._path}"
+            }
 
         try:
             self._accumulated["content"] = requested.read_text(encoding="utf-8", errors="replace")
@@ -106,9 +111,7 @@ class FetchBuilder:
 # ── backward-compatible entry point ────────────────────────────────────
 
 
-def fetch(path: str, repo_name: str | None = None, branch: str | None = None, repo_path: str | None = None) -> dict:
-    return (
-        FetchBuilder()
-        .for_repo_branch(path, repo_name, branch, repo_path)
-        .execute()
-    )
+def fetch(
+    path: str, repo_name: str | None = None, branch: str | None = None, repo_path: str | None = None
+) -> dict:
+    return FetchBuilder().for_repo_branch(path, repo_name, branch, repo_path).execute()

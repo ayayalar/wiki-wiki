@@ -74,6 +74,7 @@ def detect_domains_from_repo(repo_root: Path) -> list[str]:
     gitmodules = repo_root / ".gitmodules"
     if gitmodules.is_file():
         import configparser
+
         cfg = configparser.RawConfigParser()
         try:
             cfg.read(str(gitmodules))
@@ -82,7 +83,7 @@ def detect_domains_from_repo(repo_root: Path) -> list[str]:
                     path_val = cfg.get(section, "path", fallback="")
                     if path_val:
                         submodule_names.add(path_val.strip().split("/")[0])
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: S110, BLE001
             pass
 
     domains: set[str] = set()
@@ -148,10 +149,7 @@ def _index_stub(repo_name: str) -> str:
 
 
 def _log_stub() -> str:
-    return (
-        "# Wiki Log\n\n"
-        "<!-- Append-only. Each entry: `## [YYYY-MM-DD] <op> | <summary>` -->\n"
-    )
+    return "# Wiki Log\n\n<!-- Append-only. Each entry: `## [YYYY-MM-DD] <op> | <summary>` -->\n"
 
 
 def wiki_not_initialized_response(wiki_path: Path) -> dict:
@@ -193,7 +191,8 @@ def validate_wiki_params(repo_name: str, branch: str) -> str | None:
 
 
 def check_params(
-    repo_name: str, branch: str,
+    repo_name: str,
+    branch: str,
 ) -> dict | None:
     """Validate repo_name and branch. Returns an error dict or None if safe.
 

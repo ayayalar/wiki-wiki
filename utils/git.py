@@ -9,8 +9,8 @@ another terminal to see what's running and where time is being spent.
 
 from __future__ import annotations
 
-import configparser
 import base64
+import configparser
 import logging
 import os
 import re
@@ -24,7 +24,6 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from config import repo_root
-
 
 # ---------------------------------------------------------------------------
 # Windows Defender warm-up
@@ -47,6 +46,7 @@ def _warmup_git() -> None:
             capture_output=True,
             timeout=120,
             creationflags=creationflags,
+            check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
         pass
@@ -347,9 +347,7 @@ def _get_logger() -> logging.Logger:
         # If we can't write the log file (read-only fs, etc.) fall back to
         # a no-op handler so logging never blocks the tool.
         handler = logging.NullHandler()
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s %(message)s", "%Y-%m-%d %H:%M:%S")
-    )
+    handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", "%Y-%m-%d %H:%M:%S"))
     # Replace any prior handlers (e.g. from a previous test).
     for h in list(logger.handlers):
         logger.removeHandler(h)
@@ -366,7 +364,7 @@ def _reset_logger_for_tests() -> None:
             _logger.removeHandler(h)
             try:
                 h.close()
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001, S110
                 pass
     _logger = None
 
@@ -387,7 +385,9 @@ def _no_verify_flag() -> list[str]:
     )
 
 
-_DEFAULT_GIT_TIMEOUT_SECONDS = 60  # 1 minute — sufficient for small repos; prevents zombie accumulation.
+_DEFAULT_GIT_TIMEOUT_SECONDS = (
+    60  # 1 minute — sufficient for small repos; prevents zombie accumulation.
+)
 
 
 def _git_timeout() -> int | None:
@@ -464,7 +464,7 @@ def _pat_auth_env_for_git(args: list[str], cwd: Path | str | None) -> dict[str, 
         host = f"{host}:{parsed.port}"
 
     username = os.environ.get("WIKI_MCP_REMOTE_USERNAME", "").strip() or "x-access-token"
-    basic = base64.b64encode(f"{username}:{pat}".encode("utf-8")).decode("ascii")
+    basic = base64.b64encode(f"{username}:{pat}".encode()).decode("ascii")
     return {
         "GIT_CONFIG_COUNT": "1",
         "GIT_CONFIG_KEY_0": f"http.https://{host}/.extraheader",
@@ -503,9 +503,7 @@ def run_git(
     # Wait for the lock with a timeout to avoid indefinite blocking
     if not dir_lock.acquire(timeout=effective_timeout or 60):
         log.info(f"  BLOCKED git {cmd_str} — another git command is running in {cwd_str}")
-        raise subprocess.TimeoutExpired(
-            cmd=["git", *args], timeout=effective_timeout
-        )
+        raise subprocess.TimeoutExpired(cmd=["git", *args], timeout=effective_timeout)
 
     t0 = time.time()
 
@@ -524,7 +522,8 @@ def run_git(
         # exit on broken pipe).
         creationflags = (
             (subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP)
-            if sys.platform == "win32" else 0
+            if sys.platform == "win32"
+            else 0
         )
         # Build a clean environment:
         # - GIT_TERMINAL_PROMPT=0: credential prompts fail fast instead of blocking
@@ -538,7 +537,8 @@ def run_git(
         # - Remove GIT_CONFIG_*: VS Code injects safe.bareRepository=explicit which
         #   can interfere with operations on bare wiki repos.
         env = {
-            k: v for k, v in os.environ.items()
+            k: v
+            for k, v in os.environ.items()
             if not k.startswith("VSCODE_GIT_")
             and k not in ("GIT_ASKPASS", "SSH_ASKPASS")
             and not k.startswith("GIT_CONFIG_")
@@ -564,8 +564,8 @@ def run_git(
             tmpdir = tempfile.mkdtemp(prefix="wiki_git_")
             out_path = os.path.join(tmpdir, "out")
             err_path = os.path.join(tmpdir, "err")
-            out_f = open(out_path, "w", encoding="utf-8", errors="replace")
-            err_f = open(err_path, "w", encoding="utf-8", errors="replace")
+            out_f = open(out_path, "w", encoding="utf-8", errors="replace")  # noqa: SIM115
+            err_f = open(err_path, "w", encoding="utf-8", errors="replace")  # noqa: SIM115
         else:
             tmpdir = None
             out_f = subprocess.PIPE
@@ -575,21 +575,46 @@ def run_git(
         # Write commands (commit, merge, push, etc.) need index.lock
         # for data integrity. Read commands benefit from skipping it
         # to reduce lock contention during concurrent tool calls.
-        _read_only_cmds = frozenset([
-            "status", "log", "show", "rev-parse", "cat-file",
-            "ls-files", "ls-tree", "diff", "diff-files", "diff-index",
-            "branch", "tag", "describe", "merge-base", "for-each-ref",
-            "remote", "config", "version", "symbolic-ref", "var",
-            "rev-list", "verify-pack", "hash-object",
-            "get-tar-commit-id", "check-attr", "check-ignore",
-            "check-mailmap", "count-objects", "fsck", "notes",
-            "range-diff", "shortlog", "ls-remote",
-        ])
+        _read_only_cmds = frozenset(
+            [
+                "status",
+                "log",
+                "show",
+                "rev-parse",
+                "cat-file",
+                "ls-files",
+                "ls-tree",
+                "diff",
+                "diff-files",
+                "diff-index",
+                "branch",
+                "tag",
+                "describe",
+                "merge-base",
+                "for-each-ref",
+                "remote",
+                "config",
+                "version",
+                "symbolic-ref",
+                "var",
+                "rev-list",
+                "verify-pack",
+                "hash-object",
+                "get-tar-commit-id",
+                "check-attr",
+                "check-ignore",
+                "check-mailmap",
+                "count-objects",
+                "fsck",
+                "notes",
+                "range-diff",
+                "shortlog",
+                "ls-remote",
+            ]
+        )
         _cmd = args[0] if args else ""
         _git_args = (
-            ["git", "--no-optional-locks", *args]
-            if _cmd in _read_only_cmds
-            else ["git", *args]
+            ["git", "--no-optional-locks", *args] if _cmd in _read_only_cmds else ["git", *args]
         )
         try:
             proc = subprocess.Popen(
@@ -634,29 +659,31 @@ def run_git(
                 # (proc.kill) to guarantee git.exe dies and releases index.lock.
                 try:
                     import signal as _sig
+
                     os.kill(proc.pid, _sig.CTRL_BREAK_EVENT)
                 except OSError:
                     pass
                 try:
                     proc.wait(timeout=3)
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001, S110
                     pass
                 if proc.poll() is None:
                     proc.kill()
                 try:
                     proc.wait(timeout=5)
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001, S110
                     pass
             else:
                 # On Unix, process groups are standard.
                 try:
                     import signal as _sig
+
                     os.killpg(os.getpgid(proc.pid), _sig.SIGKILL)
                 except (OSError, ProcessLookupError):
                     proc.kill()
                 try:
                     proc.communicate(timeout=5)
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001, S110
                     pass
 
         try:
@@ -719,8 +746,7 @@ def _parse_repo_name_from_url(url: str) -> str | None:
     if not url:
         return None
     last = url.rsplit("/", 1)[-1]
-    if last.endswith(".git"):
-        last = last[:-4]
+    last = last.removesuffix(".git")
     return last or None
 
 
@@ -797,9 +823,7 @@ def get_current_branch() -> str:
 
 def get_merge_base(ref_a: str, ref_b: str = "HEAD", cwd: Path | str | None = None) -> str | None:
     """Return the merge-base commit between two refs, or None if either is missing."""
-    result = run_git(
-        ["merge-base", ref_a, ref_b], cwd=cwd or repo_root(), check=False
-    )
+    result = run_git(["merge-base", ref_a, ref_b], cwd=cwd or repo_root(), check=False)
     if result.returncode != 0:
         return None
     return result.stdout.strip() or None
